@@ -11,9 +11,17 @@
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
   canvas{background:#0d1420;display:block;touch-action:none;
     box-shadow:0 0 80px rgba(80,140,255,.18);border-radius:4px;}
-  #hud{position:fixed;top:10px;left:0;right:0;text-align:center;color:#cdd6e4;
-    font-size:13px;letter-spacing:.5px;pointer-events:none;font-variant-numeric:tabular-nums;
-    text-shadow:0 1px 4px rgba(0,0,0,.6);}
+  #hud{position:fixed;top:10px;left:0;right:0;display:flex;justify-content:center;gap:9px;
+    padding:0 8px;flex-wrap:wrap;pointer-events:none;font-variant-numeric:tabular-nums;}
+  #hud .stat{display:flex;flex-direction:column;align-items:center;min-width:56px;
+    background:rgba(9,13,20,.55);border-radius:13px;padding:6px 12px;
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
+  #hud .stat b{font-size:27px;font-weight:800;line-height:1;text-shadow:0 0 16px currentColor;}
+  #hud .stat i{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#7f8ca0;
+    font-style:normal;margin-top:4px;}
+  #hud .st-time b{color:#57d3ff;}
+  #hud .st-blocks b{color:#b98bff;}
+  #hud .st-score b{color:#ffd25f;}
   #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
     padding:24px;overflow-y:auto;
@@ -62,6 +70,17 @@
   #chint b{color:#93a1b5;font-weight:700;}
   #chint .touch{display:none;}
   @media (pointer:coarse){#chint .touch{display:inline;}}
+  #speed{margin:16px 0 2px;width:240px;max-width:78vw;}
+  #speed .slbl{display:block;color:#7f8ca0;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;margin-bottom:10px;}
+  #speed .slbl b{color:#ffd25f;font-size:15px;font-weight:800;letter-spacing:0;}
+  #multSlider{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:999px;
+    background:#33455f;outline:none;cursor:pointer;}
+  #multSlider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;
+    border-radius:50%;background:#ffd25f;border:0;box-shadow:0 0 16px rgba(255,210,95,.5);cursor:pointer;}
+  #multSlider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#ffd25f;border:0;
+    box-shadow:0 0 16px rgba(255,210,95,.5);cursor:pointer;}
+  #speed .ends{display:flex;justify-content:space-between;color:#5f6d82;font-size:11px;margin-top:5px;}
   #admin{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
     background:rgba(4,7,11,.82);padding:20px;}
   #admin .apanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
@@ -80,7 +99,11 @@
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas></div>
-<div id="hud" class="hidden"><span id="score">0</span></div>
+<div id="hud" class="hidden">
+  <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
+  <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
+  <div class="stat st-score"><b id="hScore">0</b><i>score</i></div>
+</div>
 <div id="admin" class="hidden">
   <div class="apanel">
     <div class="atitle">Breakin admin</div>
@@ -107,6 +130,11 @@
       <button id="saveBtn">Save</button>
     </div>
   </div>
+  <div id="speed">
+    <span class="slbl">Ball speed &nbsp;&middot;&nbsp; score <b id="multVal">&times;2</b></span>
+    <input type="range" id="multSlider" min="1" max="4" step="0.5" value="2">
+    <div class="ends"><span>slower</span><span>faster</span></div>
+  </div>
   <button id="startBtn">Play</button>
   <div id="hint">press <b>Space</b> to start</div>
   <div id="board"></div>
@@ -118,7 +146,11 @@ const ctx=canvas.getContext('2d');
 const overlay=document.getElementById('overlay');
 const startBtn=document.getElementById('startBtn');
 const hud=document.getElementById('hud');
-const scoreEl=document.getElementById('score');
+const hTime=document.getElementById('hTime');
+const hBlocks=document.getElementById('hBlocks');
+const hScore=document.getElementById('hScore');
+const multSlider=document.getElementById('multSlider');
+const multVal=document.getElementById('multVal');
 const titleEl=overlay.querySelector('h1');
 const badgeEl=document.getElementById('badge');
 const msgEl=document.getElementById('msg');
@@ -252,8 +284,24 @@ function fit(){
 addEventListener('resize',()=>{fit();if(ball&&mode!=='play')draw();});
 fit();
 
-let grid,ball,paddle,lives,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
+let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
+
+// Ball speed / score multiplier — set on the menu only, locked once a game starts.
+// score = blocks generated x mult;  faster ball = higher mult.
+let mult=2;
+try{const s=parseFloat(localStorage.getItem('breakin-mult'));if(s>=1&&s<=4)mult=s;}catch(e){}
+const ballFactor=()=>0.62+0.3*mult;          // mult 1 -> 0.92x ... mult 4 -> 1.82x base speed
+function setMult(m){
+  if(mode==='play')return;                   // cannot change speed mid-game
+  mult=Math.min(4,Math.max(1,Math.round(m*2)/2));
+  multSlider.value=mult;
+  multVal.textContent='×'+mult;
+  try{localStorage.setItem('breakin-mult',mult);}catch(e){}
+  if(mode==='attract'&&typeof ball!=='undefined'&&ball)resetBall();   // demo shows the new speed
+}
+multSlider.addEventListener('input',()=>setMult(parseFloat(multSlider.value)));
+setMult(mult);
 
 const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
 const filled=(r,c)=>r>=0&&r<rows&&c>=0&&c<COLS&&!!grid[r][c];
@@ -279,14 +327,14 @@ function minAngle(){                  // stop the ball crawling along / trapping
 function reset(){
   grid=newGrid();                    // starts completely empty
   paddle={w:Math.max(52,cell*2.6),x:W/2};
-  lives=3;placed=0;elapsed=0;noPlace=0;pending=null;
+  placed=0;elapsed=0;noPlace=0;pending=null;   // one life — a miss ends the game
   empties=spawnMaxRow*COLS;
   resetBall();
   over=false;
   startTime=performance.now();lastT=startTime;
 }
 function resetBall(){                 // hovers 2 cells above the bar, then launches upward at a random angle
-  const sp=Math.max(3.2,cell*0.135);
+  const sp=Math.max(3.2,cell*0.135)*ballFactor();
   ball={x:W/2,y:paddleY()-cell*2,r:Math.max(4.5,cell*0.26),vx:0,vy:0,speed:sp,base:sp,hold:42};
   pending=null;stuckMs=0;stuckX=ball.x;stuckY=ball.y;
 }
@@ -342,10 +390,10 @@ function endGame(reason){
   over=true;
   if(mode==='attract')return;             // loop() will quietly restart the demo next frame
   mode='over';
-  const score=Math.floor(elapsed)+placed, secs=Math.floor(elapsed), blk=placed;
+  const secs=Math.floor(elapsed), blk=placed, score=Math.round(blk*mult);
   badgeEl.textContent=reason||'Game over';
   titleEl.textContent='GAME OVER';
-  msgEl.innerHTML=`You lasted <b>${secs}s</b> and raised <b>${blk}</b> blocks &mdash; score <b>${score}</b>.`;
+  msgEl.innerHTML=`<b>${blk}</b> blocks &times; <b>${mult}</b> = <b>${score}</b><br><span style="color:#7f8ca0;font-size:13px">${secs}s survived</span>`;
   startBtn.textContent='Play again';
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');
@@ -411,7 +459,6 @@ function step(dt){
       const aim=vy>0?x:paddle.x;
       paddle.x+=(clamp(aim,paddle.w/2,W-paddle.w/2)-paddle.x)*Math.min(1,0.16*f);
     }
-    if(elapsed>50){endGame();return;}     // recycle the demo so the arena resets look fresh
   }else{                                   // player: keyboard
     let dir=0;
     if(held.has('arrowleft')||held.has('a'))dir-=1;
@@ -468,12 +515,7 @@ function step(dt){
     if(hit)bounce();
     if(over)return;
 
-    if(ball.y-ball.r>H){
-      if(mode==='attract'){resetBall();break;}   // demo never dies on a miss
-      lives--;
-      if(lives<=0){endGame('Out of balls');return;}
-      resetBall();break;
-    }
+    if(ball.y-ball.r>H){endGame('Missed the ball');return;}   // one life — a miss ends it (attract restarts the demo)
   }
   resolvePending();
   unstick();
@@ -513,7 +555,11 @@ function loop(t){
   if(over&&mode==='attract')reset();        // a demo round ended — start a fresh arena
   step(dt);
   draw();
-  if(mode==='play')scoreEl.textContent=`${Math.floor(elapsed)}s   ${placed} blocks   ${'●'.repeat(lives)}`;
+  if(mode==='play'){
+    hTime.textContent=Math.floor(elapsed);
+    hBlocks.textContent=placed;
+    hScore.textContent=Math.round(placed*mult);
+  }
   requestAnimationFrame(loop);
 }
 
