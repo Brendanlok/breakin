@@ -58,11 +58,10 @@
   #board .dt{font-size:11px;color:#5f6d82;white-space:nowrap;}
   #board .sc{font-weight:700;color:#cdd6e4;white-space:nowrap;}
   #board .empty{color:#6b788c;font-size:13px;padding:8px;}
-  #ctl{margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;opacity:.92;}
-  #ctl .lbl{color:#8493a8;font-size:12px;letter-spacing:.06em;text-transform:uppercase;}
-  #ctl button{padding:8px 14px;font-size:13px;font-weight:600;border-radius:999px;cursor:pointer;
-    color:#cdd6e4;background:#152131;border:1px solid #2b3a52;}
-  #ctl button.on{color:#05121f;background:#5fb0ff;border-color:#5fb0ff;}
+  #chint{margin-top:18px;font-size:12px;color:#5f6d82;letter-spacing:.03em;}
+  #chint b{color:#93a1b5;font-weight:700;}
+  #chint .touch{display:none;}
+  @media (pointer:coarse){#chint .touch{display:inline;}}
   #admin{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
     background:rgba(4,7,11,.82);padding:20px;}
   #admin .apanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
@@ -109,13 +108,9 @@
     </div>
   </div>
   <button id="startBtn">Play</button>
-  <div id="hint">or press <b>Space</b></div>
+  <div id="hint">press <b>Space</b> to start</div>
   <div id="board"></div>
-  <div id="ctl">
-    <span class="lbl">Control</span>
-    <button data-c="mouse">Mouse</button>
-    <button data-c="keys">Keyboard&nbsp;&nbsp;A / D&nbsp;&nbsp;&larr; / &rarr;</button>
-  </div>
+  <div id="chint">move with <b>&larr; &rarr;</b> or <b>A D</b><span class="touch"> &middot; drag to move</span></div>
 </div>
 <script>
 const canvas=document.getElementById('c');
@@ -127,7 +122,6 @@ const scoreEl=document.getElementById('score');
 const titleEl=overlay.querySelector('h1');
 const badgeEl=document.getElementById('badge');
 const msgEl=document.getElementById('msg');
-const ctlBtns=[...document.querySelectorAll('#ctl button')];
 const nameEntry=document.getElementById('nameEntry');
 const nameInput=document.getElementById('nameInput');
 const saveBtn=document.getElementById('saveBtn');
@@ -257,16 +251,6 @@ function fit(){
 }
 addEventListener('resize',()=>{fit();if(ball&&mode!=='play')draw();});
 fit();
-
-let control='mouse';
-try{control=localStorage.getItem('breakin-control')||'mouse';}catch(e){}
-function setControl(c){
-  control=c;
-  try{localStorage.setItem('breakin-control',c);}catch(e){}
-  ctlBtns.forEach(b=>b.classList.toggle('on',b.dataset.c===c));
-}
-ctlBtns.forEach(b=>b.addEventListener('click',()=>setControl(b.dataset.c)));
-setControl(control);
 
 let grid,ball,paddle,lives,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
@@ -428,7 +412,7 @@ function step(dt){
       paddle.x+=(clamp(aim,paddle.w/2,W-paddle.w/2)-paddle.x)*Math.min(1,0.16*f);
     }
     if(elapsed>50){endGame();return;}     // recycle the demo so the arena resets look fresh
-  }else if(control==='keys'){
+  }else{                                   // player: keyboard
     let dir=0;
     if(held.has('arrowleft')||held.has('a'))dir-=1;
     if(held.has('arrowright')||held.has('d'))dir+=1;
@@ -493,9 +477,14 @@ function step(dt){
   }
   resolvePending();
   unstick();
-  if(!over){                                      // trapped in one spot for >2s (walled off) = game over
-    if(Math.hypot(ball.x-stuckX,ball.y-stuckY)>cell*2.5){stuckX=ball.x;stuckY=ball.y;stuckMs=0;}
-    else if((stuckMs+=dt)>2000)endGame('Walled off');
+  if(!over){                                      // trapped in one spot for >2s = walled off
+    if(ball.y>paddleY()-cell*3){                   // near the paddle -> the player can still act on it, never "stuck"
+      stuckMs=0;stuckX=ball.x;stuckY=ball.y;
+    }else if(Math.hypot(ball.x-stuckX,ball.y-stuckY)>cell*2.5){
+      stuckX=ball.x;stuckY=ball.y;stuckMs=0;
+    }else if((stuckMs+=dt)>2000){
+      endGame('Walled off');
+    }
   }
 }
 
@@ -533,8 +522,9 @@ function movePaddle(clientX){
   const x=(clientX-rect.left)*(W/rect.width);
   paddle.x=clamp(x,paddle.w/2,W-paddle.w/2);
 }
-addEventListener('pointermove',e=>{if(mode==='play'&&control==='mouse')movePaddle(e.clientX);});
-addEventListener('pointerdown',e=>{if(mode==='play'&&control==='mouse')movePaddle(e.clientX);});
+// touch only — drag the paddle on phones/tablets. No mouse control (keyboard on desktop).
+addEventListener('pointermove',e=>{if(mode==='play'&&e.pointerType!=='mouse')movePaddle(e.clientX);});
+addEventListener('pointerdown',e=>{if(mode==='play'&&e.pointerType!=='mouse')movePaddle(e.clientX);});
 
 startBtn.addEventListener('click',startPlay);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)rafOn=false;else kick();});
