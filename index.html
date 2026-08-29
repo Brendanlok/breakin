@@ -82,8 +82,8 @@ const board=document.getElementById('board');
 const MAXBOARD=10;
 
 // ---- shared leaderboard (Supabase REST). Falls back to this-device localStorage when unreachable. ----
-const LB_URL='__LB_URL__';   // https://<project>.supabase.co/rest/v1/breakin_scores
-const LB_KEY='__LB_KEY__';   // Supabase anon/publishable key — public by design, the table is RLS-guarded
+const LB_URL='https://ekcnpuwclkjnqnntlvot.supabase.co/rest/v1/breakin_scores';
+const LB_KEY='sb_publishable_pfng2gwF0IdAZfwbwhWPWQ_bfHOMIAC';  // Supabase publishable key — public by design, table is RLS-guarded
 const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20;
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
