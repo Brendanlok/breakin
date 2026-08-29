@@ -382,7 +382,8 @@ function kick(){                           // ensure exactly one animation loop 
   rafOn=true;lastT=performance.now();requestAnimationFrame(loop);
 }
 function startAttract(){                   // demo playing behind the menu
-  mode='attract';over=false;
+  mode='attract';over=false;pendingScore=null;
+  nameEntry.classList.add('hidden');
   badgeEl.textContent='Breakout, in reverse';
   titleEl.textContent='BREAKIN';
   msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.';
