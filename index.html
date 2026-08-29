@@ -120,12 +120,26 @@
   #admin .atitle{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#7f8ca0;margin-bottom:12px;}
   #admin input{width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border-radius:9px;
     border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;margin-bottom:10px;}
+  #admin .ahint{font-size:11px;color:#6b7a90;line-height:1.4;margin-bottom:12px;}
   #admin .arow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  #admin .danger-row{margin-top:2px;}
   #admin button{padding:9px 14px;font-size:13px;font-weight:700;border:0;border-radius:9px;
     background:#1b2637;color:#cdd6e4;cursor:pointer;}
-  #admin button.danger{background:#b3402f;color:#fff;}
-  #admin #aOut{font-size:11px;color:#8fa0b6;background:#0b1220;border-radius:8px;padding:8px;
-    max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0 0 10px;min-height:14px;}
+  #admin button.danger{background:#8a3324;color:#fff;}
+  #admin button.armed{background:#b3402f;color:#fff;}
+  #admin #aOut{font-size:12px;color:#c4cedd;background:#0b1220;border-radius:9px;padding:10px;
+    max-height:240px;overflow:auto;margin:2px 0 12px;line-height:1.5;}
+  #admin #aOut:empty{display:none;}
+  #admin #aOut .dim{color:#6b7a90;font-size:11px;}
+  #admin #aOut .lrow{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding:5px 0;border-top:1px solid #172230;}
+  #admin #aOut .lrow:first-child{border-top:0;}
+  #admin #aOut .card{padding:8px 0;border-top:1px solid #172230;}
+  #admin #aOut .card:first-child{border-top:0;}
+  #admin #aOut .del{padding:4px 9px;font-size:11px;background:#2a3444;color:#c9d3e0;border-radius:7px;
+    border:0;cursor:pointer;white-space:nowrap;}
+  #admin #aOut .del.armed{background:#b3402f;color:#fff;}
+  #admin #aOut pre{white-space:pre-wrap;word-break:break-all;font-size:10px;color:#8fa0b6;margin:4px 0 0;}
   #gate{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
     background:rgba(4,7,11,.86);padding:20px;}
   #gate .gpanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:20px;
@@ -177,17 +191,18 @@
 <div id="admin" class="hidden">
   <div class="apanel">
     <div class="atitle">Breakin admin</div>
-    <input id="aPass" type="password" placeholder="passphrase" autocomplete="off" spellcheck="false">
-    <input id="aId" placeholder="row id (for delete)" autocomplete="off" spellcheck="false">
+    <input id="aPass" type="hidden">
+    <div class="ahint">View buttons just show info &mdash; nothing changes. Anything that deletes asks you to click twice.</div>
     <div class="arow">
-      <button data-a="stats">Stats</button>
-      <button data-a="list">Scores</button>
-      <button data-a="feedback">Feedback</button>
-      <button data-a="errors">Errors</button>
-      <button data-a="delete_one">Delete row</button>
-      <button data-a="reset" class="danger">Reset board</button>
+      <button id="btnStats">Summary</button>
+      <button id="btnScores">View scores</button>
+      <button id="btnFeedback">View feedback</button>
+      <button id="btnErrors">View crash reports</button>
     </div>
-    <pre id="aOut"></pre>
+    <div class="arow danger-row">
+      <button id="btnReset" class="danger">Wipe the whole leaderboard</button>
+    </div>
+    <div id="aOut"></div>
     <button id="aClose">Close</button>
   </div>
 </div>
@@ -364,7 +379,6 @@ nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();
 // passphrase server-side; nothing secret is stored in this file.
 const admin=document.getElementById('admin');
 const aPass=document.getElementById('aPass');
-const aId=document.getElementById('aId');
 const aOut=document.getElementById('aOut');
 const gate=document.getElementById('gate');
 const gPass=document.getElementById('gPass');
@@ -379,11 +393,12 @@ async function verifyPass(p){
     return !!(j&&j.ok);
   }catch(e){return null;}                            // null = couldn't reach the server
 }
-function showAdmin(){admin.classList.remove('hidden');aPass.focus();}
+function showAdmin(){admin.classList.remove('hidden');aOut.innerHTML='';}
 function openAdmin(){                                // in-page passphrase gate (native prompt() is blocked here)
   if(fb)fb.classList.add('hidden');
   if(adminOK){showAdmin();return;}
-  gate.classList.remove('hidden');gErr.textContent='';gPass.value='';gPass.focus();
+  gate.classList.remove('hidden');gErr.textContent='';
+  requestAnimationFrame(()=>{gPass.value='';gPass.focus();});   // clear the stray keystroke that triggered this
 }
 async function submitGate(){
   const p=gPass.value.trim();
@@ -401,7 +416,7 @@ gPass.addEventListener('keydown',e=>{
   if(e.key==='Enter'){e.preventDefault();submitGate();}
   else if(e.key==='Escape')gate.classList.add('hidden');
 });
-function closeAdmin(){admin.classList.add('hidden');aOut.textContent='';if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();}
+function closeAdmin(){admin.classList.add('hidden');aOut.innerHTML='';}
 addEventListener('hashchange',()=>{if((location.hash||'').toLowerCase()==='#admin')openAdmin();});
 let badgeTaps=[];
 badgeEl.addEventListener('click',()=>{
@@ -410,25 +425,82 @@ badgeEl.addEventListener('click',()=>{
   if(badgeTaps.length>=5){badgeTaps=[];openAdmin();}
 });
 document.getElementById('aClose').addEventListener('click',closeAdmin);
-let resetArmed=0;
-async function adminCall(action){
-  const secret=aPass.value.trim();
-  if(!secret){aOut.textContent='enter the passphrase first';return;}
-  const body={action,secret};
-  if(action==='delete_one'){body.target=aId.value.trim();if(!body.target){aOut.textContent='paste a row id';return;}}
-  if(action==='reset'){
-    if(Date.now()-resetArmed>4000){resetArmed=Date.now();aOut.textContent='Wipe the ENTIRE leaderboard? Click "Reset board" again within 4s to confirm.';return;}
-    resetArmed=0;
-  }
-  aOut.textContent='working...';
-  try{
-    const r=await fetch(RPC_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const txt=await r.text();
-    aOut.textContent=r.status+'  '+txt;
-    if(r.ok&&(action==='reset'||action==='delete_one'))refreshBoard();
-  }catch(e){aOut.textContent='error: '+e;}
+
+// ---- admin actions, rendered in plain English ----
+async function rpc(action,extra){
+  const r=await fetch(RPC_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify(Object.assign({action,secret:aPass.value.trim()},extra||{}))});
+  try{return await r.json();}catch(e){return null;}
 }
-admin.querySelectorAll('button[data-a]').forEach(b=>b.addEventListener('click',()=>adminCall(b.dataset.a)));
+const plural=(n,w)=>n+' '+w+(n===1?'':'s');
+const armFor=(btn,label,ms=4000)=>{btn.dataset.armed='1';btn.classList.add('armed');const o=btn.textContent;btn.textContent=label;
+  setTimeout(()=>{if(btn.dataset.armed){btn.dataset.armed='';btn.classList.remove('armed');btn.textContent=o;}},ms);};
+
+async function doStats(){
+  aOut.textContent='Loading…';
+  const d=await rpc('stats');
+  if(!d||!d.ok){aOut.textContent='Could not load (passphrase or connection).';return;}
+  aOut.innerHTML=`On the leaderboard: <b>${plural(d.scores,'score')}</b>`
+    +(d.top!=null?` &nbsp;(best is <b>${d.top}</b>)`:'')+`.<br>`
+    +`Feedback messages: <b>${d.feedback}</b>.<br>`
+    +`Crash reports: <b>${d.errors}</b>.`;
+}
+async function doScores(){
+  aOut.textContent='Loading…';
+  const rows=await rpc('list');
+  if(!Array.isArray(rows)){aOut.textContent='Could not load (passphrase or connection).';return;}
+  if(!rows.length){aOut.innerHTML='<i>The leaderboard is empty.</i>';return;}
+  aOut.innerHTML=rows.map((r,i)=>
+    `<div class="lrow"><span>${i+1}. <b>${esc(r.name)}</b> &mdash; ${r.score} pts`
+    +`<br><span class="dim">${r.blocks} blocks &times; ${r.mult||'?'} &nbsp;·&nbsp; ${r.secs}s &nbsp;·&nbsp; ${fullDate(r.created_at)}</span></span>`
+    +`<button class="del" data-id="${r.id}">delete</button></div>`).join('');
+  aOut.querySelectorAll('.del').forEach(b=>b.addEventListener('click',async()=>{
+    if(!b.dataset.armed){aOut.querySelectorAll('.del').forEach(x=>{x.dataset.armed='';x.classList.remove('armed');x.textContent='delete';});
+      armFor(b,'click again to delete');return;}
+    b.dataset.armed='';b.textContent='…';
+    const d=await rpc('delete_one',{target:b.dataset.id});
+    await refreshBoard();
+    await doScores();
+  }));
+}
+async function doFeedback(){
+  aOut.textContent='Loading…';
+  const rows=await rpc('feedback');
+  if(!Array.isArray(rows)){aOut.textContent='Could not load (passphrase or connection).';return;}
+  if(!rows.length){aOut.innerHTML='<i>No feedback yet.</i>';return;}
+  aOut.innerHTML=rows.map(f=>
+    `<div class="card"><div class="dim">${f.name?esc(f.name):'anonymous'} &nbsp;·&nbsp; ${fullDate(f.created_at)}</div>`
+    +`<div>${esc(f.message)}</div></div>`).join('');
+}
+async function doErrors(){
+  aOut.textContent='Loading…';
+  const rows=await rpc('errors');
+  if(!Array.isArray(rows)){aOut.textContent='Could not load (passphrase or connection).';return;}
+  if(!rows.length){aOut.innerHTML='<i>No crash reports &mdash; nice.</i>';return;}
+  aOut.innerHTML=rows.map(e=>
+    `<div class="card"><div class="dim">${fullDate(e.created_at)}</div>`
+    +`<div><b>${esc(e.msg||'error')}</b></div>`
+    +(e.extra?`<div class="dim">${esc(JSON.stringify(e.extra))}</div>`:'')
+    +(e.stack?`<pre>${esc(e.stack)}</pre>`:'')+`</div>`).join('');
+}
+const btnReset=document.getElementById('btnReset');
+btnReset.addEventListener('click',async()=>{
+  if(!btnReset.dataset.armed){
+    armFor(btnReset,'Click again to wipe everything',5000);
+    aOut.innerHTML='<b>This deletes every score on the leaderboard.</b> Click the red button again within 5 seconds to go ahead.';
+    return;
+  }
+  btnReset.dataset.armed='';btnReset.classList.remove('armed');btnReset.textContent='Wipe the whole leaderboard';
+  aOut.textContent='Wiping…';
+  const d=await rpc('reset');
+  await refreshBoard();
+  aOut.innerHTML=(d&&d.ok)?`Done &mdash; removed <b>${plural(d.deleted,'score')}</b>. The leaderboard is empty now.`
+    :'That did not work &mdash; check the passphrase / connection.';
+});
+document.getElementById('btnStats').addEventListener('click',doStats);
+document.getElementById('btnScores').addEventListener('click',doScores);
+document.getElementById('btnFeedback').addEventListener('click',doFeedback);
+document.getElementById('btnErrors').addEventListener('click',doErrors);
 
 // ---- player feedback ----
 const fb=document.getElementById('fb');
@@ -673,7 +745,7 @@ addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(mode!=='play'&&!typingInText()&&/^[a-z]$/.test(k)){ // type "admin" on the menu -> passphrase gate
     adminSeq=(adminSeq+k).slice(-6);
-    if(adminSeq.endsWith('admin')){adminSeq='';openAdmin();return;}
+    if(adminSeq.endsWith('admin')){adminSeq='';e.preventDefault();openAdmin();return;}
   }
   if(k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){held.add(k);e.preventDefault();return;}
   if((e.key===' '||e.code==='Space')&&mode!=='play'&&!typingInText()){
