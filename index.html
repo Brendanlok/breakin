@@ -10,36 +10,56 @@
     touch-action:none;-webkit-user-select:none;user-select:none;}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
   canvas{background:#0d1420;display:block;touch-action:none;
-    box-shadow:0 0 60px rgba(80,140,255,.15);border-radius:4px;}
-  #hud{position:fixed;top:8px;left:0;right:0;text-align:center;color:#cdd6e4;
-    font-size:13px;letter-spacing:.5px;pointer-events:none;font-variant-numeric:tabular-nums;}
+    box-shadow:0 0 80px rgba(80,140,255,.18);border-radius:4px;}
+  #hud{position:fixed;top:10px;left:0;right:0;text-align:center;color:#cdd6e4;
+    font-size:13px;letter-spacing:.5px;pointer-events:none;font-variant-numeric:tabular-nums;
+    text-shadow:0 1px 4px rgba(0,0,0,.6);}
   #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
-    background:rgba(6,10,16,.85);padding:24px;overflow-y:auto;}
-  #overlay h1{font-size:26px;margin:0 0 10px;font-weight:700;letter-spacing:.5px;}
-  #overlay p{margin:5px 0;color:#9aa7ba;font-size:15px;max-width:320px;line-height:1.45;}
+    padding:24px;overflow-y:auto;
+    background:radial-gradient(ellipse 85% 52% at 50% 44%,
+      rgba(9,12,18,.94) 0%, rgba(9,12,18,.92) 42%, rgba(9,12,18,.44) 100%);
+    -webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px);}
+  #overlay .badge{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:#5f86b8;margin-bottom:6px;}
+  #overlay h1{font-size:clamp(36px,12vw,50px);margin:0 0 8px;font-weight:800;letter-spacing:.14em;
+    color:#eaf2ff;text-shadow:0 0 32px rgba(95,176,255,.5),0 2px 0 rgba(0,0,0,.35);}
+  #overlay p{margin:4px 0;color:#93a1b5;font-size:14px;max-width:300px;line-height:1.5;}
   #overlay b{color:#e8edf4;}
-  #ctl{margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;}
-  #ctl .lbl{color:#9aa7ba;font-size:13px;}
-  #ctl button{padding:8px 14px;font-size:14px;font-weight:600;border-radius:999px;cursor:pointer;
-    color:#cdd6e4;background:#1b2637;border:1px solid #2b3a52;}
-  #ctl button.on{color:#0a0e14;background:#5fb0ff;border-color:#5fb0ff;}
-  #startBtn{margin-top:18px;padding:12px 30px;font-size:16px;font-weight:600;
-    color:#0a0e14;background:#5fb0ff;border:0;border-radius:999px;cursor:pointer;}
-  #nameEntry{margin:12px 0 2px;}
-  #nameEntry .ne-label{color:#8fd18f;font-size:13px;font-weight:600;margin-bottom:6px;}
+  #startBtn{margin:20px 0 6px;padding:15px 54px;font-size:18px;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;color:#05121f;border:0;border-radius:999px;cursor:pointer;
+    background:linear-gradient(180deg,#84c4ff,#48a2f3);
+    box-shadow:0 10px 34px rgba(72,162,243,.42);
+    animation:breathe 2.4s ease-in-out infinite;}
+  #startBtn:hover{filter:brightness(1.08);}
+  #startBtn:active{transform:scale(.96);}
+  @keyframes breathe{
+    0%,100%{transform:scale(1);box-shadow:0 10px 34px rgba(72,162,243,.34);}
+    50%{transform:scale(1.045);box-shadow:0 14px 46px rgba(72,162,243,.62);}}
+  @media (prefers-reduced-motion:reduce){#startBtn{animation:none;}}
+  #nameEntry{margin:14px 0 2px;}
+  #nameEntry .ne-label{color:#8fd6a0;font-size:13px;font-weight:700;letter-spacing:.04em;margin-bottom:7px;}
   #nameEntry .ne-row{display:flex;gap:8px;justify-content:center;}
-  #nameInput{padding:9px 12px;font-size:15px;border-radius:8px;border:1px solid #2b3a52;
-    background:#0d1420;color:#e8edf4;width:150px;}
-  #saveBtn{padding:9px 16px;font-size:14px;font-weight:600;border:0;border-radius:8px;
-    background:#5fb0ff;color:#0a0e14;cursor:pointer;}
-  #board{margin:12px 0 2px;width:250px;max-width:80vw;font-variant-numeric:tabular-nums;}
-  #board .bt{color:#7f8ca0;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
-  #board .row{display:flex;justify-content:space-between;gap:10px;padding:4px 8px;
-    border-radius:6px;color:#9aa7ba;font-size:14px;}
-  #board .row.me{background:#1b2637;color:#e8edf4;}
+  #nameInput{padding:10px 12px;font-size:15px;border-radius:9px;border:1px solid #33455f;
+    background:#0b1220;color:#e8edf4;width:150px;outline:none;}
+  #nameInput:focus{border-color:#5fb0ff;}
+  #saveBtn{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:9px;
+    background:#5fb0ff;color:#05121f;cursor:pointer;}
+  #board{margin:16px 0 4px;width:264px;max-width:82vw;font-variant-numeric:tabular-nums;}
+  #board .bt{color:#67788f;font-size:11px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:7px;}
+  #board .row{display:flex;justify-content:space-between;gap:10px;padding:5px 10px;
+    border-radius:7px;color:#9aa7ba;font-size:14px;}
+  #board .row+.row{margin-top:1px;}
+  #board .row.me{background:rgba(95,176,255,.14);color:#eaf2ff;}
   #board .row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  #board .empty{color:#6b788c;font-size:13px;padding:6px;}
+  #board .rk{display:inline-block;width:1.5em;font-weight:800;color:#5c6a80;}
+  #board .rk.r1{color:#f5c451;}#board .rk.r2{color:#cfd8e4;}#board .rk.r3{color:#dc9160;}
+  #board .sc{font-weight:700;color:#cdd6e4;}
+  #board .empty{color:#6b788c;font-size:13px;padding:8px;}
+  #ctl{margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;opacity:.92;}
+  #ctl .lbl{color:#8493a8;font-size:12px;letter-spacing:.06em;text-transform:uppercase;}
+  #ctl button{padding:8px 14px;font-size:13px;font-weight:600;border-radius:999px;cursor:pointer;
+    color:#cdd6e4;background:#152131;border:1px solid #2b3a52;}
+  #ctl button.on{color:#05121f;background:#5fb0ff;border-color:#5fb0ff;}
   .hidden{display:none!important;}
 </style>
 </head>
@@ -47,22 +67,23 @@
 <div id="wrap"><canvas id="c"></canvas></div>
 <div id="hud" class="hidden"><span id="score">0</span></div>
 <div id="overlay">
+  <div class="badge" id="badge">Breakout, in reverse</div>
   <h1>BREAKIN</h1>
-  <p id="msg">The arena starts empty. Every time the ball hits a wall, a block, or the paddle, the grid cell it bounced out of turns solid &mdash; forever. Nothing is ever cleared. Keep the ball alive as the space crusts over and closes in.</p>
+  <p id="msg">The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.</p>
   <div id="nameEntry" class="hidden">
-    <div class="ne-label">You made the leaderboard</div>
+    <div class="ne-label">&#9733; You made the leaderboard</div>
     <div class="ne-row">
       <input id="nameInput" maxlength="14" placeholder="Your name" autocomplete="off" spellcheck="false">
       <button id="saveBtn">Save</button>
     </div>
   </div>
+  <button id="startBtn">Play</button>
   <div id="board"></div>
   <div id="ctl">
     <span class="lbl">Control</span>
     <button data-c="mouse">Mouse</button>
     <button data-c="keys">Keyboard&nbsp;&nbsp;A / D&nbsp;&nbsp;&larr; / &rarr;</button>
   </div>
-  <button id="startBtn">Play</button>
 </div>
 <script>
 const canvas=document.getElementById('c');
@@ -72,6 +93,7 @@ const startBtn=document.getElementById('startBtn');
 const hud=document.getElementById('hud');
 const scoreEl=document.getElementById('score');
 const titleEl=overlay.querySelector('h1');
+const badgeEl=document.getElementById('badge');
 const msgEl=document.getElementById('msg');
 const ctlBtns=[...document.querySelectorAll('#ctl button')];
 const nameEntry=document.getElementById('nameEntry');
@@ -117,12 +139,13 @@ function renderBoard(mine){
   const list=currentBoard();
   const tag=!lbOn()?' &middot; this device':(remoteBoard?'':' &middot; offline');
   let html='<div class="bt">Leaderboard'+tag+'</div>';
-  if(!list.length){board.innerHTML=html+'<div class="empty">No scores yet &mdash; be the first.</div>';return;}
+  if(!list.length){board.innerHTML=html+'<div class="empty">No scores yet &mdash; play to claim #1.</div>';return;}
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
   html+=list.map((s,i)=>{
     const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
     if(me)hl.used=true;
-    return `<div class="row${me?' me':''}"><span class="nm">${i+1}. ${esc(s.name)}</span><span>${s.score}</span></div>`;
+    const rk=i<3?' r'+(i+1):'';
+    return `<div class="row${me?' me':''}"><span class="nm"><span class="rk${rk}">${i+1}</span>${esc(s.name)}</span><span class="sc">${s.score}</span></div>`;
   }).join('');
   board.innerHTML=html;
 }
@@ -159,7 +182,7 @@ function fit(){
   spawnMaxRow=rows-2;                 // blocks may form right down to the row above the paddle
   canvas.width=W;canvas.height=H;
 }
-addEventListener('resize',()=>{fit();if(ball&&!running)draw();});
+addEventListener('resize',()=>{fit();if(ball&&mode!=='play')draw();});
 fit();
 
 let control='mouse';
@@ -172,7 +195,8 @@ function setControl(c){
 ctlBtns.forEach(b=>b.addEventListener('click',()=>setControl(b.dataset.c)));
 setControl(control);
 
-let grid,ball,paddle,lives,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,running=false,over=false,startTime,lastT,elapsed=0;
+let grid,ball,paddle,lives,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
+let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 
 const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
 const filled=(r,c)=>r>=0&&r<rows&&c>=0&&c<COLS&&!!grid[r][c];
@@ -201,7 +225,7 @@ function reset(){
   lives=3;placed=0;elapsed=0;noPlace=0;pending=null;
   empties=spawnMaxRow*COLS;
   resetBall();
-  over=false;running=true;
+  over=false;
   startTime=performance.now();lastT=startTime;
 }
 function resetBall(){                 // hovers 2 cells above the bar, then launches upward at a random angle
@@ -217,7 +241,7 @@ function bounce(){
   if(!grid[r][c]){
     if(!pending||pending.r!==r||pending.c!==c)pending={r,c,age:0};
   }else if(++noPlace>=40){
-    endGame('The ball is boxed in.');                   // walled away from the paddle, only hitting solids
+    endGame('Boxed in');                                // walled away from the paddle, only hitting solids
   }
 }
 function resolvePending(){
@@ -228,7 +252,7 @@ function resolvePending(){
     grid[r][c]=1;placed++;empties--;noPlace=0;pending=null;
     ball.speed=Math.min(ball.base*1.9,ball.base*(1+placed*0.012));
     setSpeed();
-    if(empties<=0)endGame('The arena sealed shut.');
+    if(empties<=0)endGame('Arena sealed');
   }else if(++pending.age>50){
     pending=null;                                       // ball lingered in that cell — skip this bounce
   }
@@ -254,28 +278,53 @@ function unstick(){
       return;
     }
   }
-  endGame('The arena sealed shut.');
+  endGame('Arena sealed');
 }
 
 function endGame(reason){
-  over=true;running=false;
-  const score=Math.floor(elapsed)+placed;
-  titleEl.textContent='Game Over';
-  msgEl.innerHTML=`${reason||''}<br>You lasted <b>${Math.floor(elapsed)}s</b> and raised <b>${placed}</b> blocks.<br>Score <b>${score}</b>.`;
+  over=true;
+  if(mode==='attract')return;             // loop() will quietly restart the demo next frame
+  mode='over';
+  const score=Math.floor(elapsed)+placed, secs=Math.floor(elapsed), blk=placed;
+  badgeEl.textContent=reason||'Game over';
+  titleEl.textContent='GAME OVER';
+  msgEl.innerHTML=`You lasted <b>${secs}s</b> and raised <b>${blk}</b> blocks &mdash; score <b>${score}</b>.`;
   startBtn.textContent='Play again';
-  pendingScore=null;
-  nameEntry.classList.add('hidden');
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');
   renderBoard();
-  (async()=>{                              // pull the latest shared board, then offer name entry if it qualifies
-    await refreshBoard();
-    if(over&&qualifies(score)){
-      pendingScore={score,secs:Math.floor(elapsed),blocks:placed};
-      nameInput.value=loadName();
-      nameEntry.classList.remove('hidden');
-    }
-  })();
+  if(qualifies(score)){                    // decide from the board already loaded — no network wait, no race
+    pendingScore={score,secs,blocks:blk};
+    nameInput.value=loadName();
+    nameEntry.classList.remove('hidden');
+  }else{
+    pendingScore=null;
+    nameEntry.classList.add('hidden');
+  }
+  refreshBoard();                          // freshen the displayed numbers in the background
+}
+
+function kick(){                           // ensure exactly one animation loop is running
+  if(rafOn)return;
+  rafOn=true;lastT=performance.now();requestAnimationFrame(loop);
+}
+function startAttract(){                   // demo playing behind the menu
+  mode='attract';over=false;
+  badgeEl.textContent='Breakout, in reverse';
+  titleEl.textContent='BREAKIN';
+  msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.';
+  startBtn.textContent='Play';
+  overlay.classList.remove('hidden');
+  hud.classList.add('hidden');
+  fit();reset();kick();
+}
+function startPlay(){
+  if(pendingScore)commitPending();         // save an unsaved qualifying score before replaying (local write is sync)
+  mode='play';over=false;
+  nameEntry.classList.add('hidden');
+  overlay.classList.add('hidden');
+  hud.classList.remove('hidden');
+  fit();reset();kick();
 }
 
 const held=new Set();
@@ -289,7 +338,20 @@ function step(dt){
   elapsed=(performance.now()-startTime)/1000;
   const f=dt/16.667;
 
-  if(control==='keys'){
+  if(mode==='attract'){                   // demo bot: predict the ball's crossing and slide toward it
+    if(ball.hold<=0){
+      let x=ball.x,y=ball.y,vx=ball.vx,vy=ball.vy,g=1200;
+      const target=paddleY()-ball.r;
+      while(y<target&&g-->0){
+        x+=vx;y+=vy;
+        if(x<ball.r){x=ball.r;vx=-vx;}else if(x>W-ball.r){x=W-ball.r;vx=-vx;}
+        if(y<ball.r){y=ball.r;vy=-vy;}
+      }
+      const aim=vy>0?x:paddle.x;
+      paddle.x+=(clamp(aim,paddle.w/2,W-paddle.w/2)-paddle.x)*Math.min(1,0.16*f);
+    }
+    if(elapsed>50){endGame();return;}     // recycle the demo so the arena resets look fresh
+  }else if(control==='keys'){
     let dir=0;
     if(held.has('arrowleft')||held.has('a'))dir-=1;
     if(held.has('arrowright')||held.has('d'))dir+=1;
@@ -346,8 +408,9 @@ function step(dt){
     if(over)return;
 
     if(ball.y-ball.r>H){
+      if(mode==='attract'){resetBall();break;}   // demo never dies on a miss
       lives--;
-      if(lives<=0){endGame('You ran out of balls.');return;}
+      if(lives<=0){endGame('Out of balls');return;}
       resetBall();break;
     }
   }
@@ -355,7 +418,7 @@ function step(dt){
   unstick();
   if(!over){                                      // trapped in one spot for >2s (walled off) = game over
     if(Math.hypot(ball.x-stuckX,ball.y-stuckY)>cell*2.5){stuckX=ball.x;stuckY=ball.y;stuckMs=0;}
-    else if((stuckMs+=dt)>2000)endGame('The ball got walled off from your paddle.');
+    else if((stuckMs+=dt)>2000)endGame('Walled off');
   }
 }
 
@@ -378,10 +441,13 @@ function draw(){
 }
 
 function loop(t){
-  if(!running)return;
+  if(!rafOn)return;
   let dt=t-lastT;lastT=t;if(dt>60)dt=60;
+  if(mode==='over'){rafOn=false;return;}    // freeze on the final frame; startPlay() restarts the loop
+  if(over&&mode==='attract')reset();        // a demo round ended — start a fresh arena
   step(dt);
-  if(running){draw();scoreEl.textContent=`${Math.floor(elapsed)}s   ${placed} blocks   ${'●'.repeat(lives)}`;}
+  draw();
+  if(mode==='play')scoreEl.textContent=`${Math.floor(elapsed)}s   ${placed} blocks   ${'●'.repeat(lives)}`;
   requestAnimationFrame(loop);
 }
 
@@ -390,17 +456,14 @@ function movePaddle(clientX){
   const x=(clientX-rect.left)*(W/rect.width);
   paddle.x=clamp(x,paddle.w/2,W-paddle.w/2);
 }
-addEventListener('pointermove',e=>{if(running&&control==='mouse')movePaddle(e.clientX);});
-addEventListener('pointerdown',e=>{if(running&&control==='mouse')movePaddle(e.clientX);});
+addEventListener('pointermove',e=>{if(mode==='play'&&control==='mouse')movePaddle(e.clientX);});
+addEventListener('pointerdown',e=>{if(mode==='play'&&control==='mouse')movePaddle(e.clientX);});
 
-startBtn.addEventListener('click',()=>{
-  if(pendingScore)commitPending();        // save an unsaved qualifying score before replaying (local write is sync)
-  nameEntry.classList.add('hidden');
-  overlay.classList.add('hidden');
-  hud.classList.remove('hidden');
-  fit();reset();requestAnimationFrame(loop);
-});
-refreshBoard();                           // load the shared board onto the opening screen
+startBtn.addEventListener('click',startPlay);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)rafOn=false;else kick();});
+
+refreshBoard();                            // load the shared board onto the opening screen
+startAttract();                            // kick off the demo behind the menu
 
 // ponytail: self-checks for the two invariants — never place onto the ball, always find an exit
 (function(){
