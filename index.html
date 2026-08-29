@@ -345,9 +345,27 @@ const admin=document.getElementById('admin');
 const aPass=document.getElementById('aPass');
 const aId=document.getElementById('aId');
 const aOut=document.getElementById('aOut');
-function openAdmin(){admin.classList.remove('hidden');aPass.focus();}
-function closeAdmin(){admin.classList.add('hidden');aOut.textContent='';aPass.value='';}
-if((location.hash||'').toLowerCase()==='#admin')openAdmin();
+let adminOK=false;
+async function verifyPass(p){
+  if(!p)return false;
+  try{
+    const r=await fetch(RPC_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'stats',secret:p})});
+    const j=await r.json();
+    return !!(j&&j.ok);
+  }catch(e){return false;}
+}
+async function openAdmin(){
+  if(fb)fb.classList.add('hidden');
+  if(!adminOK){
+    const p=prompt('Admin passphrase');
+    if(p===null)return;                              // cancelled
+    if(!await verifyPass(p)){alert('Wrong passphrase.');return;}
+    adminOK=true;aPass.value=p;
+  }
+  admin.classList.remove('hidden');aPass.focus();
+}
+function closeAdmin(){admin.classList.add('hidden');aOut.textContent='';if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();}
 addEventListener('hashchange',()=>{if((location.hash||'').toLowerCase()==='#admin')openAdmin();});
 let badgeTaps=[];
 badgeEl.addEventListener('click',()=>{
@@ -606,10 +624,16 @@ function startPlay(){
 }
 
 const held=new Set();
+let adminSeq='';
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
+  const ae=document.activeElement, inField=ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName);
+  if(mode!=='play'&&!inField&&/^[a-z]$/.test(k)){        // type "admin" on the menu -> passphrase gate
+    adminSeq=(adminSeq+k).slice(-6);
+    if(adminSeq.endsWith('admin')){adminSeq='';openAdmin();return;}
+  }
   if(k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){held.add(k);e.preventDefault();return;}
-  if((e.key===' '||e.code==='Space')&&mode!=='play'&&document.activeElement!==nameInput){
+  if((e.key===' '||e.code==='Space')&&mode!=='play'&&!inField){
     e.preventDefault();startPlay();                     // Space = play / play again from any menu screen
   }
 });
@@ -731,6 +755,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)rafOn=false
 
 refreshBoard();                            // load the shared board onto the opening screen
 startAttract();                            // kick off the demo behind the menu
+if((location.hash||'').toLowerCase()==='#admin')openAdmin();
 
 // ponytail: self-checks for the two invariants — never place onto the ball, always find an exit
 (function(){

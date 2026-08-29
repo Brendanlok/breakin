@@ -26,8 +26,10 @@ backend is unreachable the game falls back to a per-device `localStorage` board.
 
 ## Admin
 
-Open `…/#admin` (or tap the "Breakout, in reverse" badge 5×). Passphrase-gated,
-server-side — the passphrase lives only in the `breakin_admin` function.
+On the menu, **type `admin`** (or open `…/#admin`, or tap the "Breakout, in
+reverse" badge 5×). A prompt asks for the passphrase; if it checks out
+server-side the panel opens. The passphrase lives only in the `breakin_admin`
+function — never in this repo.
 Stats / view scores / view feedback / view crash reports / delete a row / reset.
 
 ## Deploy
