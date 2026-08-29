@@ -32,6 +32,8 @@
     animation:breathe 2.4s ease-in-out infinite;}
   #startBtn:hover{filter:brightness(1.08);}
   #startBtn:active{transform:scale(.96);}
+  #hint{margin:2px 0 0;font-size:12px;color:#5f6d82;letter-spacing:.04em;}
+  #hint b{color:#93a1b5;font-weight:700;}
   @keyframes breathe{
     0%,100%{transform:scale(1);box-shadow:0 10px 34px rgba(72,162,243,.34);}
     50%{transform:scale(1.045);box-shadow:0 14px 46px rgba(72,162,243,.62);}}
@@ -78,6 +80,7 @@
     </div>
   </div>
   <button id="startBtn">Play</button>
+  <div id="hint">or press <b>Space</b></div>
   <div id="board"></div>
   <div id="ctl">
     <span class="lbl">Control</span>
@@ -330,7 +333,10 @@ function startPlay(){
 const held=new Set();
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
-  if(k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){held.add(k);e.preventDefault();}
+  if(k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){held.add(k);e.preventDefault();return;}
+  if((e.key===' '||e.code==='Space')&&mode!=='play'&&document.activeElement!==nameInput){
+    e.preventDefault();startPlay();                     // Space = play / play again from any menu screen
+  }
 });
 addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));
 
