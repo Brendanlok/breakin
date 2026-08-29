@@ -10,6 +10,7 @@ long as you can.
 ## What's here
 
 - `index.html` — the whole game. Vanilla JS + canvas, no dependencies, no build step.
+  A bot plays a live demo behind the start menu; hit Play to take over.
 - `leaderboard.sql` — one-time Supabase setup for the shared leaderboard.
 
 ## Leaderboard
