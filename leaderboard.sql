@@ -1,0 +1,35 @@
+-- Breakin shared leaderboard — run once in the Supabase SQL editor.
+-- Public (anon) can READ the board and INSERT one score. No update, no delete.
+-- Protection is row-level security + CHECK constraints, so the anon key is safe to ship.
+
+create table if not exists public.breakin_scores (
+  id          uuid primary key default gen_random_uuid(),
+  name        text        not null,
+  score       integer     not null,
+  secs        integer     not null default 0,
+  blocks      integer     not null default 0,
+  created_at  timestamptz not null default now(),
+  constraint breakin_name_len    check (char_length(btrim(name)) between 1 and 14),
+  constraint breakin_score_range check (score  between 0 and 100000),
+  constraint breakin_secs_range  check (secs   between 0 and 100000),
+  constraint breakin_block_range check (blocks between 0 and 100000)
+);
+
+create index if not exists breakin_scores_rank_idx
+  on public.breakin_scores (score desc, created_at asc);
+
+alter table public.breakin_scores enable row level security;
+
+drop policy if exists breakin_read   on public.breakin_scores;
+drop policy if exists breakin_insert on public.breakin_scores;
+
+create policy breakin_read on public.breakin_scores
+  for select to anon, authenticated
+  using (true);
+
+create policy breakin_insert on public.breakin_scores
+  for insert to anon, authenticated
+  with check (
+    char_length(btrim(name)) between 1 and 14
+    and score between 0 and 100000
+  );

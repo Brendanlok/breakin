@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Breakin</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0e14;overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    touch-action:none;-webkit-user-select:none;user-select:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  canvas{background:#0d1420;display:block;touch-action:none;
+    box-shadow:0 0 60px rgba(80,140,255,.15);border-radius:4px;}
+  #hud{position:fixed;top:8px;left:0;right:0;text-align:center;color:#cdd6e4;
+    font-size:13px;letter-spacing:.5px;pointer-events:none;font-variant-numeric:tabular-nums;}
+  #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;color:#e8edf4;text-align:center;
+    background:rgba(6,10,16,.85);padding:24px;overflow-y:auto;}
+  #overlay h1{font-size:26px;margin:0 0 10px;font-weight:700;letter-spacing:.5px;}
+  #overlay p{margin:5px 0;color:#9aa7ba;font-size:15px;max-width:320px;line-height:1.45;}
+  #overlay b{color:#e8edf4;}
+  #ctl{margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  #ctl .lbl{color:#9aa7ba;font-size:13px;}
+  #ctl button{padding:8px 14px;font-size:14px;font-weight:600;border-radius:999px;cursor:pointer;
+    color:#cdd6e4;background:#1b2637;border:1px solid #2b3a52;}
+  #ctl button.on{color:#0a0e14;background:#5fb0ff;border-color:#5fb0ff;}
+  #startBtn{margin-top:18px;padding:12px 30px;font-size:16px;font-weight:600;
+    color:#0a0e14;background:#5fb0ff;border:0;border-radius:999px;cursor:pointer;}
+  #nameEntry{margin:12px 0 2px;}
+  #nameEntry .ne-label{color:#8fd18f;font-size:13px;font-weight:600;margin-bottom:6px;}
+  #nameEntry .ne-row{display:flex;gap:8px;justify-content:center;}
+  #nameInput{padding:9px 12px;font-size:15px;border-radius:8px;border:1px solid #2b3a52;
+    background:#0d1420;color:#e8edf4;width:150px;}
+  #saveBtn{padding:9px 16px;font-size:14px;font-weight:600;border:0;border-radius:8px;
+    background:#5fb0ff;color:#0a0e14;cursor:pointer;}
+  #board{margin:12px 0 2px;width:250px;max-width:80vw;font-variant-numeric:tabular-nums;}
+  #board .bt{color:#7f8ca0;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;}
+  #board .row{display:flex;justify-content:space-between;gap:10px;padding:4px 8px;
+    border-radius:6px;color:#9aa7ba;font-size:14px;}
+  #board .row.me{background:#1b2637;color:#e8edf4;}
+  #board .row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #board .empty{color:#6b788c;font-size:13px;padding:6px;}
+  .hidden{display:none!important;}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="hud" class="hidden"><span id="score">0</span></div>
+<div id="overlay">
+  <h1>BREAKIN</h1>
+  <p id="msg">The arena starts empty. Every time the ball hits a wall, a block, or the paddle, the grid cell it bounced out of turns solid &mdash; forever. Nothing is ever cleared. Keep the ball alive as the space crusts over and closes in.</p>
+  <div id="nameEntry" class="hidden">
+    <div class="ne-label">You made the leaderboard</div>
+    <div class="ne-row">
+      <input id="nameInput" maxlength="14" placeholder="Your name" autocomplete="off" spellcheck="false">
+      <button id="saveBtn">Save</button>
+    </div>
+  </div>
+  <div id="board"></div>
+  <div id="ctl">
+    <span class="lbl">Control</span>
+    <button data-c="mouse">Mouse</button>
+    <button data-c="keys">Keyboard&nbsp;&nbsp;A / D&nbsp;&nbsp;&larr; / &rarr;</button>
+  </div>
+  <button id="startBtn">Play</button>
+</div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const overlay=document.getElementById('overlay');
+const startBtn=document.getElementById('startBtn');
+const hud=document.getElementById('hud');
+const scoreEl=document.getElementById('score');
+const titleEl=overlay.querySelector('h1');
+const msgEl=document.getElementById('msg');
+const ctlBtns=[...document.querySelectorAll('#ctl button')];
+const nameEntry=document.getElementById('nameEntry');
+const nameInput=document.getElementById('nameInput');
+const saveBtn=document.getElementById('saveBtn');
+const board=document.getElementById('board');
+
+const MAXBOARD=10;
+
+// ---- shared leaderboard (Supabase REST). Falls back to this-device localStorage when unreachable. ----
+const LB_URL='__LB_URL__';   // https://<project>.supabase.co/rest/v1/breakin_scores
+const LB_KEY='__LB_KEY__';   // Supabase anon/publishable key — public by design, the table is RLS-guarded
+const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20;
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const loadLocal=()=>{try{return JSON.parse(localStorage.getItem('breakin-scores'))||[];}catch(e){return[];}};
+const saveLocal=l=>{try{localStorage.setItem('breakin-scores',JSON.stringify(l.slice(0,MAXBOARD)));}catch(e){}};
+const loadName=()=>{try{return localStorage.getItem('breakin-name')||'';}catch(e){return'';}};
+
+let remoteBoard=null;        // array once the shared board loads this session; null = offline / not configured
+let pendingScore=null;
+
+async function lbFetch(){
+  if(!lbOn())return null;
+  try{
+    const r=await fetch(LB_URL+'?select=name,score&order=score.desc,created_at.asc&limit='+MAXBOARD,{headers:{apikey:LB_KEY}});
+    return r.ok?await r.json():null;
+  }catch(e){return null;}
+}
+async function lbSubmit(e){
+  if(!lbOn())return false;
+  try{
+    const r=await fetch(LB_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({name:e.name,score:e.score,secs:e.secs,blocks:e.blocks})});
+    return r.ok;
+  }catch(err){return false;}
+}
+async function refreshBoard(){remoteBoard=await lbFetch();renderBoard();}
+
+const currentBoard=()=>remoteBoard||loadLocal();
+
+function renderBoard(mine){
+  const list=currentBoard();
+  const tag=!lbOn()?' &middot; this device':(remoteBoard?'':' &middot; offline');
+  let html='<div class="bt">Leaderboard'+tag+'</div>';
+  if(!list.length){board.innerHTML=html+'<div class="empty">No scores yet &mdash; be the first.</div>';return;}
+  const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
+  html+=list.map((s,i)=>{
+    const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
+    if(me)hl.used=true;
+    return `<div class="row${me?' me':''}"><span class="nm">${i+1}. ${esc(s.name)}</span><span>${s.score}</span></div>`;
+  }).join('');
+  board.innerHTML=html;
+}
+
+function qualifies(score){
+  if(score<=0)return false;
+  const list=currentBoard();
+  return list.length<MAXBOARD||score>list[list.length-1].score;
+}
+
+async function commitPending(){
+  if(!pendingScore)return null;
+  const name=((nameInput.value||loadName()||'PLAYER').trim().slice(0,14))||'PLAYER';
+  try{localStorage.setItem('breakin-name',name);}catch(e){}
+  const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks};
+  pendingScore=null;
+  const loc=loadLocal();loc.push(entry);loc.sort((a,b)=>b.score-a.score);saveLocal(loc);   // always keep a local copy
+  if(lbOn()){await lbSubmit(entry);await refreshBoard();}
+  renderBoard(entry);
+  return entry;
+}
+saveBtn.addEventListener('click',async()=>{nameEntry.classList.add('hidden');await commitPending();});
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveBtn.click();}});
+
+const COLS=11;
+let W,H,cell,rows,spawnMaxRow;
+function fit(){
+  const vw=Math.min(window.innerWidth,460);
+  const vh=window.innerHeight;
+  cell=Math.max(22,Math.floor(vw/COLS));
+  W=cell*COLS;
+  rows=Math.max(14,Math.min(Math.floor(vh/cell),Math.round(COLS*1.7)));
+  H=rows*cell;
+  spawnMaxRow=rows-3;                 // bottom strip stays clear for the paddle
+  canvas.width=W;canvas.height=H;
+}
+addEventListener('resize',()=>{fit();if(ball&&!running)draw();});
+fit();
+
+let control='mouse';
+try{control=localStorage.getItem('breakin-control')||'mouse';}catch(e){}
+function setControl(c){
+  control=c;
+  try{localStorage.setItem('breakin-control',c);}catch(e){}
+  ctlBtns.forEach(b=>b.classList.toggle('on',b.dataset.c===c));
+}
+ctlBtns.forEach(b=>b.addEventListener('click',()=>setControl(b.dataset.c)));
+setControl(control);
+
+let grid,ball,paddle,lives,placed,empties,pending,noPlace,lastHit,running=false,over=false,startTime,lastT,elapsed=0;
+
+const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
+const filled=(r,c)=>r>=0&&r<rows&&c>=0&&c<COLS&&!!grid[r][c];
+const paddleY=()=>H-cell*1.2;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+function ballInCell(r,c){
+  const cx=clamp(ball.x,c*cell,c*cell+cell);
+  const cy=clamp(ball.y,r*cell,r*cell+cell);
+  return Math.hypot(ball.x-cx,ball.y-cy)<ball.r+0.5;
+}
+function setSpeed(){
+  const m=Math.hypot(ball.vx,ball.vy)||1;
+  ball.vx=ball.vx/m*ball.speed;ball.vy=ball.vy/m*ball.speed;
+}
+function minAngle(){                  // stop the ball crawling along / trapping in a wall
+  const mn=ball.speed*0.34;
+  if(Math.abs(ball.vx)<mn)ball.vx=ball.vx<0?-mn:mn;
+  if(Math.abs(ball.vy)<mn)ball.vy=ball.vy<0?-mn:mn;
+  setSpeed();
+}
+
+function reset(){
+  grid=newGrid();                    // starts completely empty
+  paddle={w:Math.max(52,cell*2.6),x:W/2};
+  lives=3;placed=0;elapsed=0;noPlace=0;pending=null;
+  empties=spawnMaxRow*COLS;
+  resetBall();
+  over=false;running=true;
+  startTime=performance.now();lastT=startTime;
+}
+function resetBall(){                 // hovers 2 cells above the bar, then launches upward at a random angle
+  const sp=Math.max(3.2,cell*0.135);
+  ball={x:W/2,y:paddleY()-cell*2,r:Math.max(4.5,cell*0.26),vx:0,vy:0,speed:sp,base:sp,hold:42};
+  pending=null;lastHit=performance.now();
+}
+
+// a bounce happened: earmark the empty cell the ball is leaving; it turns solid once the ball clears it
+function bounce(){
+  const r=Math.floor(ball.y/cell),c=Math.floor(ball.x/cell);
+  if(r<0||r>=spawnMaxRow||c<0||c>=COLS)return;          // paddle strip / off-grid: no block, no penalty
+  if(!grid[r][c]){
+    if(!pending||pending.r!==r||pending.c!==c)pending={r,c,age:0};
+  }else if(++noPlace>=40){
+    endGame('The ball is boxed in.');                   // walled away from the paddle, only hitting solids
+  }
+}
+function resolvePending(){
+  if(!pending)return;
+  const {r,c}=pending;
+  if(grid[r][c]){pending=null;return;}
+  if(!ballInCell(r,c)){                                 // NEVER drop a block onto the ball
+    grid[r][c]=1;placed++;empties--;noPlace=0;pending=null;
+    ball.speed=Math.min(ball.base*1.9,ball.base*(1+placed*0.012));
+    setSpeed();
+    if(empties<=0)endGame('The arena sealed shut.');
+  }else if(++pending.age>50){
+    pending=null;                                       // ball lingered in that cell — skip this bounce
+  }
+}
+
+// safety net: if the ball ever ends up embedded in a solid cell, eject it to the nearest open cell
+function unstick(){
+  const gr=Math.floor(ball.y/cell),gc=Math.floor(ball.x/cell);
+  if(!filled(gr,gc))return;                             // fast path — almost every frame
+  for(let rad=1;rad<rows+COLS;rad++){
+    let best=null,bd=Infinity;
+    for(let dr=-rad;dr<=rad;dr++)for(let dc=-rad;dc<=rad;dc++){
+      if(Math.max(Math.abs(dr),Math.abs(dc))!==rad)continue;
+      const r=gr+dr,c=gc+dc;
+      if(r<0||r>=rows||c<0||c>=COLS||grid[r][c])continue;
+      const cx=c*cell+cell/2,cy=r*cell+cell/2,d=(cx-ball.x)**2+(cy-ball.y)**2;
+      if(d<bd){bd=d;best={cx,cy};}
+    }
+    if(best){
+      const a=Math.atan2(best.cy-ball.y,best.cx-ball.x);
+      ball.x=best.cx;ball.y=best.cy;
+      ball.vx=Math.cos(a)*ball.speed;ball.vy=Math.sin(a)*ball.speed;
+      return;
+    }
+  }
+  endGame('The arena sealed shut.');
+}
+
+function endGame(reason){
+  over=true;running=false;
+  const score=Math.floor(elapsed)+placed;
+  titleEl.textContent='Game Over';
+  msgEl.innerHTML=`${reason||''}<br>You lasted <b>${Math.floor(elapsed)}s</b> and raised <b>${placed}</b> blocks.<br>Score <b>${score}</b>.`;
+  startBtn.textContent='Play again';
+  pendingScore=null;
+  nameEntry.classList.add('hidden');
+  overlay.classList.remove('hidden');
+  hud.classList.add('hidden');
+  renderBoard();
+  (async()=>{                              // pull the latest shared board, then offer name entry if it qualifies
+    await refreshBoard();
+    if(over&&qualifies(score)){
+      pendingScore={score,secs:Math.floor(elapsed),blocks:placed};
+      nameInput.value=loadName();
+      nameEntry.classList.remove('hidden');
+    }
+  })();
+}
+
+const held=new Set();
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){held.add(k);e.preventDefault();}
+});
+addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));
+
+function step(dt){
+  elapsed=(performance.now()-startTime)/1000;
+  const f=dt/16.667;
+
+  if(control==='keys'){
+    let dir=0;
+    if(held.has('arrowleft')||held.has('a'))dir-=1;
+    if(held.has('arrowright')||held.has('d'))dir+=1;
+    if(dir)paddle.x=clamp(paddle.x+dir*cell*0.42*f,paddle.w/2,W-paddle.w/2);
+  }
+
+  if(ball.hold>0){                        // hover above the bar, aimable, then random upward launch
+    ball.hold-=f;
+    ball.x=clamp(paddle.x,ball.r,W-ball.r);
+    ball.y=paddleY()-cell*2;
+    if(ball.hold<=0){
+      const ang=-Math.PI/2+(Math.random()-0.5);   // straight up +/- ~0.5 rad
+      ball.vx=Math.cos(ang)*ball.speed;
+      ball.vy=Math.sin(ang)*ball.speed;
+    }
+    return;
+  }
+
+  const steps=Math.max(1,Math.ceil(Math.max(Math.abs(ball.vx),Math.abs(ball.vy))*f/(cell*0.5)));
+  const sx=ball.vx*f/steps, sy=ball.vy*f/steps;
+  for(let s=0;s<steps;s++){
+    const px=ball.x,py=ball.y;
+    ball.x+=sx;ball.y+=sy;
+
+    let wall=false,hit=false;
+    if(ball.x-ball.r<0){ball.x=ball.r;ball.vx=Math.abs(ball.vx);wall=true;}
+    if(ball.x+ball.r>W){ball.x=W-ball.r;ball.vx=-Math.abs(ball.vx);wall=true;}
+    if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy);wall=true;}
+    if(wall){minAngle();hit=true;}
+
+    const gc=Math.floor(ball.x/cell),gr=Math.floor(ball.y/cell);
+    if(filled(gr,gc)){                       // blocks are permanent walls — bounce, never remove, separate cleanly
+      const L=gc*cell,T=gr*cell;
+      if(px<=L&&ball.vx>0){ball.x=L-ball.r-0.1;ball.vx=-Math.abs(ball.vx);}
+      else if(px>=L+cell&&ball.vx<0){ball.x=L+cell+ball.r+0.1;ball.vx=Math.abs(ball.vx);}
+      else if(py<=T&&ball.vy>0){ball.y=T-ball.r-0.1;ball.vy=-Math.abs(ball.vy);}
+      else if(py>=T+cell&&ball.vy<0){ball.y=T+cell+ball.r+0.1;ball.vy=Math.abs(ball.vy);}
+      else{ball.x=px;ball.y=py;ball.vx=-ball.vx;ball.vy=-ball.vy;}
+      hit=true;
+    }
+
+    const pyv=paddleY();
+    if(ball.vy>0&&ball.y+ball.r>=pyv&&ball.y+ball.r<=pyv+cell*0.7&&Math.abs(ball.x-paddle.x)<=paddle.w/2+ball.r){
+      const off=(ball.x-paddle.x)/(paddle.w/2);
+      ball.vx=ball.vx+off*1.5;
+      ball.vy=-Math.abs(ball.vy);
+      setSpeed();
+      ball.y=pyv-ball.r-1;
+      noPlace=0;lastHit=performance.now();    // ball still reaches the paddle — not boxed in
+      hit=true;
+    }
+
+    if(hit)bounce();
+    if(over)return;
+
+    if(ball.y-ball.r>H){
+      lives--;
+      if(lives<=0){endGame('You ran out of balls.');return;}
+      resetBall();break;
+    }
+  }
+  resolvePending();
+  unstick();
+  if(!over&&performance.now()-lastHit>12000)      // catch-all: ball hasn't come back to the paddle
+    endGame('The ball got walled off from your paddle.');
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(120,150,200,.06)';ctx.lineWidth=1;
+  for(let c=1;c<COLS;c++){ctx.beginPath();ctx.moveTo(c*cell,0);ctx.lineTo(c*cell,H);ctx.stroke();}
+  for(let r=1;r<rows;r++){ctx.beginPath();ctx.moveTo(0,r*cell);ctx.lineTo(W,r*cell);ctx.stroke();}
+  for(let r=0;r<rows;r++)for(let c=0;c<COLS;c++){
+    if(!grid[r][c])continue;
+    ctx.fillStyle=`hsl(${(r*9+c*4+205)%360} 60% 55%)`;
+    ctx.fillRect(c*cell+1,r*cell+1,cell-2,cell-2);
+  }
+  ctx.fillStyle='#dfe9f7';
+  const pw=paddle.w,ph=Math.max(8,cell*0.28),px=paddle.x-pw/2,py=paddleY(),rr=6;
+  ctx.beginPath();ctx.moveTo(px+rr,py);
+  ctx.arcTo(px+pw,py,px+pw,py+ph,rr);ctx.arcTo(px+pw,py+ph,px,py+ph,rr);
+  ctx.arcTo(px,py+ph,px,py,rr);ctx.arcTo(px,py,px+pw,py,rr);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+}
+
+function loop(t){
+  if(!running)return;
+  let dt=t-lastT;lastT=t;if(dt>60)dt=60;
+  step(dt);
+  if(running){draw();scoreEl.textContent=`${Math.floor(elapsed)}s   ${placed} blocks   ${'●'.repeat(lives)}`;}
+  requestAnimationFrame(loop);
+}
+
+function movePaddle(clientX){
+  const rect=canvas.getBoundingClientRect();
+  const x=(clientX-rect.left)*(W/rect.width);
+  paddle.x=clamp(x,paddle.w/2,W-paddle.w/2);
+}
+addEventListener('pointermove',e=>{if(running&&control==='mouse')movePaddle(e.clientX);});
+addEventListener('pointerdown',e=>{if(running&&control==='mouse')movePaddle(e.clientX);});
+
+startBtn.addEventListener('click',()=>{
+  if(pendingScore)commitPending();        // save an unsaved qualifying score before replaying (local write is sync)
+  nameEntry.classList.add('hidden');
+  overlay.classList.add('hidden');
+  hud.classList.remove('hidden');
+  fit();reset();requestAnimationFrame(loop);
+});
+refreshBoard();                           // load the shared board onto the opening screen
+
+// ponytail: self-checks for the two invariants — never place onto the ball, always find an exit
+(function(){
+  const cs=10;
+  const hit=(bx,by,br,r,c)=>{const cx=Math.max(c*cs,Math.min(bx,c*cs+cs));const cy=Math.max(r*cs,Math.min(by,r*cs+cs));return Math.hypot(bx-cx,by-cy)<br;};
+  console.assert(hit(15,15,4,1,1),'ball centre inside a cell blocks placement there');
+  console.assert(!hit(40,40,4,1,1),'ball far away does not block placement');
+  const ring=new Set();
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)
+    if(Math.max(Math.abs(dr),Math.abs(dc))===1)ring.add(dr+','+dc);
+  console.assert(ring.size===8&&ring.has('1,0')&&ring.has('-1,-1')&&!ring.has('0,0'),
+    'unstick ring visits all 8 neighbours, never the centre');
+})();
+</script>
+</body>
+</html>
