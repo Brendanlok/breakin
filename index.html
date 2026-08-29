@@ -191,7 +191,6 @@
 <div id="admin" class="hidden">
   <div class="apanel">
     <div class="atitle">Breakin admin</div>
-    <input id="aPass" type="hidden">
     <div class="ahint">View buttons just show info &mdash; nothing changes. Anything that deletes asks you to click twice.</div>
     <div class="arow">
       <button id="btnStats">Summary</button>
@@ -378,8 +377,8 @@ nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();
 // All privileged actions go through a Supabase SECURITY DEFINER function that checks a
 // passphrase server-side; nothing secret is stored in this file.
 const admin=document.getElementById('admin');
-const aPass=document.getElementById('aPass');
 const aOut=document.getElementById('aOut');
+let adminSecret='';
 const gate=document.getElementById('gate');
 const gPass=document.getElementById('gPass');
 const gErr=document.getElementById('gErr');
@@ -407,7 +406,7 @@ async function submitGate(){
   const ok=await verifyPass(p);
   if(ok===null){gErr.textContent="can't reach the server";return;}
   if(!ok){gErr.textContent='wrong passphrase';return;}
-  adminOK=true;aPass.value=p;
+  adminOK=true;adminSecret=p;
   gate.classList.add('hidden');showAdmin();
 }
 document.getElementById('gOk').addEventListener('click',submitGate);
@@ -429,7 +428,7 @@ document.getElementById('aClose').addEventListener('click',closeAdmin);
 // ---- admin actions, rendered in plain English ----
 async function rpc(action,extra){
   const r=await fetch(RPC_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json'},
-    body:JSON.stringify(Object.assign({action,secret:aPass.value.trim()},extra||{}))});
+    body:JSON.stringify(Object.assign({action,secret:adminSecret},extra||{}))});
   try{return await r.json();}catch(e){return null;}
 }
 const plural=(n,w)=>n+' '+w+(n===1?'':'s');
