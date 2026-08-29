@@ -48,26 +48,55 @@
     background:#5fb0ff;color:#05121f;cursor:pointer;}
   #board{margin:16px 0 4px;width:264px;max-width:82vw;font-variant-numeric:tabular-nums;}
   #board .bt{color:#67788f;font-size:11px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:7px;}
-  #board .row{display:flex;justify-content:space-between;gap:10px;padding:5px 10px;
+  #board .row{display:flex;align-items:baseline;gap:8px;padding:5px 10px;
     border-radius:7px;color:#9aa7ba;font-size:14px;}
   #board .row+.row{margin-top:1px;}
   #board .row.me{background:rgba(95,176,255,.14);color:#eaf2ff;}
-  #board .row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #board .row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
   #board .rk{display:inline-block;width:1.5em;font-weight:800;color:#5c6a80;}
   #board .rk.r1{color:#f5c451;}#board .rk.r2{color:#cfd8e4;}#board .rk.r3{color:#dc9160;}
-  #board .sc{font-weight:700;color:#cdd6e4;}
+  #board .dt{font-size:11px;color:#5f6d82;white-space:nowrap;}
+  #board .sc{font-weight:700;color:#cdd6e4;white-space:nowrap;}
   #board .empty{color:#6b788c;font-size:13px;padding:8px;}
   #ctl{margin-top:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;opacity:.92;}
   #ctl .lbl{color:#8493a8;font-size:12px;letter-spacing:.06em;text-transform:uppercase;}
   #ctl button{padding:8px 14px;font-size:13px;font-weight:600;border-radius:999px;cursor:pointer;
     color:#cdd6e4;background:#152131;border:1px solid #2b3a52;}
   #ctl button.on{color:#05121f;background:#5fb0ff;border-color:#5fb0ff;}
+  #admin{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+    background:rgba(4,7,11,.82);padding:20px;}
+  #admin .apanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
+    width:320px;max-width:92vw;color:#e8edf4;text-align:left;}
+  #admin .atitle{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#7f8ca0;margin-bottom:12px;}
+  #admin input{width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border-radius:9px;
+    border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;margin-bottom:10px;}
+  #admin .arow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  #admin button{padding:9px 14px;font-size:13px;font-weight:700;border:0;border-radius:9px;
+    background:#1b2637;color:#cdd6e4;cursor:pointer;}
+  #admin button.danger{background:#b3402f;color:#fff;}
+  #admin #aOut{font-size:11px;color:#8fa0b6;background:#0b1220;border-radius:8px;padding:8px;
+    max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0 0 10px;min-height:14px;}
   .hidden{display:none!important;}
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas></div>
 <div id="hud" class="hidden"><span id="score">0</span></div>
+<div id="admin" class="hidden">
+  <div class="apanel">
+    <div class="atitle">Breakin admin</div>
+    <input id="aPass" type="password" placeholder="passphrase" autocomplete="off" spellcheck="false">
+    <input id="aId" placeholder="row id (for delete)" autocomplete="off" spellcheck="false">
+    <div class="arow">
+      <button data-a="stats">Stats</button>
+      <button data-a="list">List rows</button>
+      <button data-a="delete_one">Delete row</button>
+      <button data-a="reset" class="danger">Reset board</button>
+    </div>
+    <pre id="aOut"></pre>
+    <button id="aClose">Close</button>
+  </div>
+</div>
 <div id="overlay">
   <div class="badge" id="badge">Breakout, in reverse</div>
   <h1>BREAKIN</h1>
@@ -109,9 +138,12 @@ const MAXBOARD=10;
 // ---- shared leaderboard (Supabase REST). Falls back to this-device localStorage when unreachable. ----
 const LB_URL='https://ekcnpuwclkjnqnntlvot.supabase.co/rest/v1/breakin_scores';
 const LB_KEY='sb_publishable_pfng2gwF0IdAZfwbwhWPWQ_bfHOMIAC';  // Supabase publishable key — public by design, table is RLS-guarded
+const RPC_URL=LB_URL.replace(/\/[^/]+$/,'/rpc/breakin_admin');
 const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20;
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const shortDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString(undefined,{month:'short',day:'numeric'});};
+const fullDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':d.toLocaleString();};
 const loadLocal=()=>{try{return JSON.parse(localStorage.getItem('breakin-scores'))||[];}catch(e){return[];}};
 const saveLocal=l=>{try{localStorage.setItem('breakin-scores',JSON.stringify(l.slice(0,MAXBOARD)));}catch(e){}};
 const loadName=()=>{try{return localStorage.getItem('breakin-name')||'';}catch(e){return'';}};
@@ -122,7 +154,7 @@ let pendingScore=null;
 async function lbFetch(){
   if(!lbOn())return null;
   try{
-    const r=await fetch(LB_URL+'?select=name,score&order=score.desc,created_at.asc&limit='+MAXBOARD,{headers:{apikey:LB_KEY}});
+    const r=await fetch(LB_URL+'?select=name,score,created_at&order=score.desc,created_at.asc&limit='+MAXBOARD,{headers:{apikey:LB_KEY}});
     return r.ok?await r.json():null;
   }catch(e){return null;}
 }
@@ -148,7 +180,10 @@ function renderBoard(mine){
     const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
     if(me)hl.used=true;
     const rk=i<3?' r'+(i+1):'';
-    return `<div class="row${me?' me':''}"><span class="nm"><span class="rk${rk}">${i+1}</span>${esc(s.name)}</span><span class="sc">${s.score}</span></div>`;
+    const d=shortDate(s.created_at);
+    return `<div class="row${me?' me':''}"><span class="nm"><span class="rk${rk}">${i+1}</span>${esc(s.name)}</span>`
+      +(d?`<span class="dt" title="${esc(fullDate(s.created_at))}">${d}</span>`:'')
+      +`<span class="sc">${s.score}</span></div>`;
   }).join('');
   board.innerHTML=html;
 }
@@ -163,7 +198,7 @@ async function commitPending(){
   if(!pendingScore)return null;
   const name=((nameInput.value||loadName()||'PLAYER').trim().slice(0,14))||'PLAYER';
   try{localStorage.setItem('breakin-name',name);}catch(e){}
-  const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks};
+  const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,created_at:new Date().toISOString()};
   pendingScore=null;
   const loc=loadLocal();loc.push(entry);loc.sort((a,b)=>b.score-a.score);saveLocal(loc);   // always keep a local copy
   if(lbOn()){await lbSubmit(entry);await refreshBoard();}
@@ -172,6 +207,40 @@ async function commitPending(){
 }
 saveBtn.addEventListener('click',async()=>{nameEntry.classList.add('hidden');await commitPending();});
 nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveBtn.click();}});
+
+// ---- hidden admin: open via #admin in the URL, or 5 quick taps on the badge. ----
+// All privileged actions go through a Supabase SECURITY DEFINER function that checks a
+// passphrase server-side; nothing secret is stored in this file.
+const admin=document.getElementById('admin');
+const aPass=document.getElementById('aPass');
+const aId=document.getElementById('aId');
+const aOut=document.getElementById('aOut');
+function openAdmin(){admin.classList.remove('hidden');aPass.focus();}
+function closeAdmin(){admin.classList.add('hidden');aOut.textContent='';aPass.value='';}
+if((location.hash||'').toLowerCase()==='#admin')openAdmin();
+addEventListener('hashchange',()=>{if((location.hash||'').toLowerCase()==='#admin')openAdmin();});
+let badgeTaps=[];
+badgeEl.addEventListener('click',()=>{
+  const now=performance.now();
+  badgeTaps=badgeTaps.filter(t=>now-t<2000);badgeTaps.push(now);
+  if(badgeTaps.length>=5){badgeTaps=[];openAdmin();}
+});
+document.getElementById('aClose').addEventListener('click',closeAdmin);
+async function adminCall(action){
+  const secret=aPass.value.trim();
+  if(!secret){aOut.textContent='enter the passphrase first';return;}
+  const body={action,secret};
+  if(action==='delete_one'){body.target=aId.value.trim();if(!body.target){aOut.textContent='paste a row id';return;}}
+  if(action==='reset'&&!confirm('Wipe the ENTIRE leaderboard? This cannot be undone.'))return;
+  aOut.textContent='working...';
+  try{
+    const r=await fetch(RPC_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const txt=await r.text();
+    aOut.textContent=r.status+'  '+txt;
+    if(r.ok&&(action==='reset'||action==='delete_one'))refreshBoard();
+  }catch(e){aOut.textContent='error: '+e;}
+}
+admin.querySelectorAll('button[data-a]').forEach(b=>b.addEventListener('click',()=>adminCall(b.dataset.a)));
 
 const COLS=11;
 let W,H,cell,rows,spawnMaxRow;
