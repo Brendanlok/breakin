@@ -353,14 +353,16 @@ async function verifyPass(p){
       body:JSON.stringify({action:'stats',secret:p})});
     const j=await r.json();
     return !!(j&&j.ok);
-  }catch(e){return false;}
+  }catch(e){return null;}                            // null = couldn't reach the server
 }
 async function openAdmin(){
   if(fb)fb.classList.add('hidden');
   if(!adminOK){
     const p=prompt('Admin passphrase');
     if(p===null)return;                              // cancelled
-    if(!await verifyPass(p)){alert('Wrong passphrase.');return;}
+    const ok=await verifyPass(p);
+    if(ok===null){alert("Couldn't reach the server to check the passphrase.");return;}
+    if(!ok){alert('Wrong passphrase.');return;}
     adminOK=true;aPass.value=p;
   }
   admin.classList.remove('hidden');aPass.focus();
@@ -625,15 +627,18 @@ function startPlay(){
 
 const held=new Set();
 let adminSeq='';
+const typingInText=()=>{                               // true only for real text fields (not the range slider / buttons)
+  const ae=document.activeElement;
+  return !!ae&&(ae.tagName==='TEXTAREA'||(ae.tagName==='INPUT'&&/^(text|password|search|email|url|)$/i.test(ae.type)));
+};
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
-  const ae=document.activeElement, inField=ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName);
-  if(mode!=='play'&&!inField&&/^[a-z]$/.test(k)){        // type "admin" on the menu -> passphrase gate
+  if(mode!=='play'&&!typingInText()&&/^[a-z]$/.test(k)){ // type "admin" on the menu -> passphrase gate
     adminSeq=(adminSeq+k).slice(-6);
     if(adminSeq.endsWith('admin')){adminSeq='';openAdmin();return;}
   }
   if(k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){held.add(k);e.preventDefault();return;}
-  if((e.key===' '||e.code==='Space')&&mode!=='play'&&!inField){
+  if((e.key===' '||e.code==='Space')&&mode!=='play'&&!typingInText()){
     e.preventDefault();startPlay();                     // Space = play / play again from any menu screen
   }
 });
