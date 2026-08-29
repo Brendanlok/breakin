@@ -2,17 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Breakin</title>
+<meta name="theme-color" content="#0a0e14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Breakin">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 <style>
   html,body{margin:0;height:100%;background:#0a0e14;overflow:hidden;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     touch-action:none;-webkit-user-select:none;user-select:none;}
-  #wrap{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;padding-top:82px;}
+  #sat{position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);pointer-events:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;
+    padding-top:calc(82px + env(safe-area-inset-top,0px));}
   canvas{background:#0d1420;display:block;touch-action:none;
     box-shadow:0 0 80px rgba(80,140,255,.18);border-radius:4px;}
-  #hud{position:fixed;top:10px;left:0;right:0;display:flex;justify-content:center;gap:9px;
-    padding:0 8px;flex-wrap:wrap;pointer-events:none;font-variant-numeric:tabular-nums;}
+  #hud{position:fixed;top:calc(9px + env(safe-area-inset-top,0px));left:0;right:0;display:flex;
+    justify-content:center;gap:9px;padding:0 8px;flex-wrap:wrap;pointer-events:none;
+    font-variant-numeric:tabular-nums;}
   #hud .stat{display:flex;flex-direction:column;align-items:center;min-width:56px;
     background:rgba(9,13,20,.55);border-radius:13px;padding:6px 12px;
     -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
@@ -24,7 +35,8 @@
   #hud .st-score b{color:#ffd25f;}
   #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
-    padding:24px;overflow-y:auto;
+    padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
+    overflow-y:auto;
     background:radial-gradient(ellipse 85% 52% at 50% 44%,
       rgba(9,12,18,.94) 0%, rgba(9,12,18,.92) 42%, rgba(9,12,18,.44) 100%);
     -webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px);}
@@ -54,22 +66,42 @@
   #nameInput:focus{border-color:#5fb0ff;}
   #saveBtn{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:9px;
     background:#5fb0ff;color:#05121f;cursor:pointer;}
-  #board{margin:16px 0 4px;width:264px;max-width:82vw;font-variant-numeric:tabular-nums;}
-  #board .bt{color:#67788f;font-size:11px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:7px;}
-  #board .row{display:flex;align-items:baseline;gap:8px;padding:5px 10px;
-    border-radius:7px;color:#9aa7ba;font-size:14px;}
-  #board .row+.row{margin-top:1px;}
-  #board .row.me{background:rgba(95,176,255,.14);color:#eaf2ff;}
-  #board .row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
-  #board .rk{display:inline-block;width:1.5em;font-weight:800;color:#5c6a80;}
+  #board{margin:18px auto 4px;width:286px;max-width:88vw;font-variant-numeric:tabular-nums;}
+  #board .bt{color:#67788f;font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    margin-bottom:8px;text-align:center;}
+  #board .grid{display:grid;grid-template-columns:1.9em minmax(0,1fr) auto auto;
+    align-items:baseline;}
+  #board .grid>span{padding:5px 6px;}
+  #board .grid>span:first-child{padding-left:0;}
+  #board .grid>span:last-child{padding-right:0;}
+  #board .head{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#5f6d82;
+    padding-bottom:7px !important;}
+  #board .me{background:rgba(95,176,255,.16);}
+  #board .rk{font-weight:800;color:#5c6a80;text-align:center;}
   #board .rk.r1{color:#f5c451;}#board .rk.r2{color:#cfd8e4;}#board .rk.r3{color:#dc9160;}
-  #board .dt{font-size:11px;color:#5f6d82;white-space:nowrap;}
-  #board .sc{font-weight:700;color:#cdd6e4;white-space:nowrap;}
-  #board .empty{color:#6b788c;font-size:13px;padding:8px;}
+  #board .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c4cedd;}
+  #board .dt{font-size:11px;color:#5f6d82;white-space:nowrap;text-align:right;}
+  #board .sc{font-weight:800;color:#e6edf6;white-space:nowrap;text-align:right;}
+  #board .head.dt,#board .head.sc{text-align:right;}
+  #board .empty{color:#6b788c;font-size:13px;padding:10px;text-align:center;}
   #chint{margin-top:18px;font-size:12px;color:#5f6d82;letter-spacing:.03em;}
   #chint b{color:#93a1b5;font-weight:700;}
-  #chint .touch{display:none;}
-  @media (pointer:coarse){#chint .touch{display:inline;}}
+  @media (pointer:coarse){#chint{display:none;}}
+  #tctl{margin:14px 0 0;}
+  #tctl .slbl{display:block;color:#7f8ca0;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;margin-bottom:8px;}
+  #tctl .srow{display:flex;gap:8px;justify-content:center;}
+  #tctl button{padding:9px 18px;font-size:13px;font-weight:700;border-radius:999px;cursor:pointer;
+    color:#cdd6e4;background:#152131;border:1px solid #2b3a52;}
+  #tctl button.on{color:#05121f;background:#5fb0ff;border-color:#5fb0ff;}
+  #tpad{position:fixed;inset:0;z-index:20;pointer-events:none;}
+  #tpad .tp{position:absolute;bottom:0;top:45%;width:44%;pointer-events:auto;
+    display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:300;
+    color:rgba(230,240,255,.35);background:rgba(120,150,200,.06);
+    -webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;}
+  #tpad .tp:active{background:rgba(120,160,220,.16);color:rgba(230,240,255,.6);}
+  #tpad .tp-l{left:0;border-top-right-radius:20px;}
+  #tpad .tp-r{right:0;border-top-left-radius:20px;}
   #speed{margin:16px 0 2px;width:240px;max-width:78vw;}
   #speed .slbl{display:block;color:#7f8ca0;font-size:11px;letter-spacing:.14em;
     text-transform:uppercase;margin-bottom:10px;}
@@ -94,10 +126,27 @@
   #admin button.danger{background:#b3402f;color:#fff;}
   #admin #aOut{font-size:11px;color:#8fa0b6;background:#0b1220;border-radius:8px;padding:8px;
     max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0 0 10px;min-height:14px;}
+  #linkbtn,#fbLink{background:none;border:0;color:#6b7a90;font-size:12px;letter-spacing:.03em;
+    cursor:pointer;padding:4px;margin-top:12px;text-decoration:underline;}
+  #fbLink.nudge{color:#8fd6a0;text-decoration:none;font-weight:700;}
+  #fb{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+    background:rgba(4,7,11,.82);padding:20px;}
+  #fb .fbpanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
+    width:340px;max-width:92vw;color:#e8edf4;text-align:left;}
+  #fb .atitle{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#7f8ca0;margin-bottom:12px;}
+  #fb input,#fb textarea{width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border-radius:9px;
+    border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;margin-bottom:10px;font-family:inherit;}
+  #fb textarea{height:100px;resize:vertical;}
+  #fb .fbrow{display:flex;gap:8px;}
+  #fb button{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:9px;cursor:pointer;}
+  #fbSend{background:#5fb0ff;color:#05121f;}
+  #fbClose{background:#1b2637;color:#cdd6e4;}
+  #fbOut{font-size:12px;color:#8fd6a0;margin-top:8px;min-height:14px;}
   .hidden{display:none!important;}
 </style>
 </head>
 <body>
+<div id="sat"></div>
 <div id="wrap"><canvas id="c"></canvas></div>
 <div id="hud" class="hidden">
   <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
@@ -111,12 +160,23 @@
     <input id="aId" placeholder="row id (for delete)" autocomplete="off" spellcheck="false">
     <div class="arow">
       <button data-a="stats">Stats</button>
-      <button data-a="list">List rows</button>
+      <button data-a="list">Scores</button>
+      <button data-a="feedback">Feedback</button>
+      <button data-a="errors">Errors</button>
       <button data-a="delete_one">Delete row</button>
       <button data-a="reset" class="danger">Reset board</button>
     </div>
     <pre id="aOut"></pre>
     <button id="aClose">Close</button>
+  </div>
+</div>
+<div id="fb" class="hidden">
+  <div class="fbpanel">
+    <div class="atitle">Send feedback</div>
+    <input id="fbName" maxlength="24" placeholder="name (optional)" autocomplete="off" spellcheck="false">
+    <textarea id="fbMsg" maxlength="2000" placeholder="Bugs, ideas, anything — it goes straight to the dev."></textarea>
+    <div class="fbrow"><button id="fbSend">Send</button><button id="fbClose">Close</button></div>
+    <div id="fbOut"></div>
   </div>
 </div>
 <div id="overlay">
@@ -135,10 +195,22 @@
     <input type="range" id="multSlider" min="1" max="4" step="0.5" value="2">
     <div class="ends"><span>slower</span><span>faster</span></div>
   </div>
+  <div id="tctl" class="hidden">
+    <span class="slbl">Move the paddle</span>
+    <div class="srow">
+      <button data-t="buttons">On-screen buttons</button>
+      <button data-t="tilt">Tilt</button>
+    </div>
+  </div>
   <button id="startBtn">Play</button>
   <div id="hint">press <b>Space</b> to start</div>
   <div id="board"></div>
-  <div id="chint">move with <b>&larr; &rarr;</b> or <b>A D</b><span class="touch"> &middot; drag to move</span></div>
+  <div id="chint">move with <b>&larr; &rarr;</b> or <b>A D</b></div>
+  <button id="fbLink">Send feedback</button>
+</div>
+<div id="tpad" class="hidden">
+  <div class="tp tp-l" data-d="-1">&#8249;</div>
+  <div class="tp tp-r" data-d="1">&#8250;</div>
 </div>
 <script>
 const canvas=document.getElementById('c');
@@ -151,6 +223,11 @@ const hBlocks=document.getElementById('hBlocks');
 const hScore=document.getElementById('hScore');
 const multSlider=document.getElementById('multSlider');
 const multVal=document.getElementById('multVal');
+const tctl=document.getElementById('tctl');
+const tctlBtns=[...document.querySelectorAll('#tctl button')];
+const tpad=document.getElementById('tpad');
+const isTouch=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0
+  ||'ontouchstart' in window||/[?&]touch/.test(location.search);
 const titleEl=overlay.querySelector('h1');
 const badgeEl=document.getElementById('badge');
 const msgEl=document.getElementById('msg');
@@ -189,29 +266,52 @@ async function lbSubmit(e){
   if(!lbOn())return false;
   try{
     const r=await fetch(LB_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
-      body:JSON.stringify({name:e.name,score:e.score,secs:e.secs,blocks:e.blocks})});
+      body:JSON.stringify({name:e.name,score:e.score,secs:e.secs,blocks:e.blocks,mult:e.mult,ua:navigator.userAgent})});
     return r.ok;
   }catch(err){return false;}
 }
 async function refreshBoard(){remoteBoard=await lbFetch();renderBoard();}
 
+// ---- best-effort crash + feedback reporting (Supabase, anon-insert only) ----
+const REST=LB_URL.replace(/\/breakin_scores$/,'');
+function post(table,body){
+  if(!lbOn())return;
+  try{fetch(REST+'/'+table,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+    body:JSON.stringify(body)}).catch(()=>{});}catch(e){}
+}
+let errCount=0,lastErrAt=0;
+function reportError(msg,stack){
+  const now=Date.now();
+  if(errCount>=5||now-lastErrAt<8000)return;               // don't spam
+  errCount++;lastErrAt=now;
+  post('breakin_errors',{msg:String(msg).slice(0,500),stack:String(stack||'').slice(0,4000),
+    ua:navigator.userAgent,url:location.href,
+    extra:{mode:(typeof mode!=='undefined'?mode:'?'),placed:(typeof placed!=='undefined'?placed:null),
+      mult:(typeof mult!=='undefined'?mult:null),w:innerWidth,h:innerHeight}});
+}
+addEventListener('error',e=>reportError(e.message,e.error&&e.error.stack));
+addEventListener('unhandledrejection',e=>reportError('unhandledrejection: '+(e.reason&&e.reason.message||e.reason),e.reason&&e.reason.stack));
+
 const currentBoard=()=>remoteBoard||loadLocal();
 
 function renderBoard(mine){
-  const list=currentBoard();
+  const list=currentBoard().slice(0,MAXBOARD);
   const tag=!lbOn()?' &middot; this device':(remoteBoard?'':' &middot; offline');
   let html='<div class="bt">Leaderboard'+tag+'</div>';
   if(!list.length){board.innerHTML=html+'<div class="empty">No scores yet &mdash; play to claim #1.</div>';return;}
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
+  html+='<div class="grid"><span class="head rk">#</span><span class="head nm">name</span>'
+    +'<span class="head dt">date</span><span class="head sc">score</span>';
   html+=list.map((s,i)=>{
     const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
     if(me)hl.used=true;
-    const rk=i<3?' r'+(i+1):'';
-    const d=shortDate(s.created_at);
-    return `<div class="row${me?' me':''}"><span class="nm"><span class="rk${rk}">${i+1}</span>${esc(s.name)}</span>`
-      +(d?`<span class="dt" title="${esc(fullDate(s.created_at))}">${d}</span>`:'')
-      +`<span class="sc">${s.score}</span></div>`;
+    const rk=i<3?' r'+(i+1):'', mc=me?' me':'';
+    return `<span class="rk${rk}${mc}">${i+1}</span>`
+      +`<span class="nm${mc}">${esc(s.name)}</span>`
+      +`<span class="dt${mc}" title="${esc(fullDate(s.created_at))}">${shortDate(s.created_at)}</span>`
+      +`<span class="sc${mc}">${s.score}</span>`;
   }).join('');
+  html+='</div>';
   board.innerHTML=html;
 }
 
@@ -225,7 +325,8 @@ async function commitPending(){
   if(!pendingScore)return null;
   const name=((nameInput.value||loadName()||'PLAYER').trim().slice(0,14))||'PLAYER';
   try{localStorage.setItem('breakin-name',name);}catch(e){}
-  const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,created_at:new Date().toISOString()};
+  const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,
+    mult:pendingScore.mult,created_at:new Date().toISOString()};
   pendingScore=null;
   const loc=loadLocal();loc.push(entry);loc.sort((a,b)=>b.score-a.score);saveLocal(loc);   // always keep a local copy
   if(lbOn()){await lbSubmit(entry);await refreshBoard();}
@@ -269,12 +370,34 @@ async function adminCall(action){
 }
 admin.querySelectorAll('button[data-a]').forEach(b=>b.addEventListener('click',()=>adminCall(b.dataset.a)));
 
+// ---- player feedback ----
+const fb=document.getElementById('fb');
+const fbLink=document.getElementById('fbLink');
+const fbName=document.getElementById('fbName');
+const fbMsg=document.getElementById('fbMsg');
+const fbOut=document.getElementById('fbOut');
+const gameCount=()=>{try{return +localStorage.getItem('breakin-games')||0;}catch(e){return 0;}};
+const bumpGames=()=>{try{localStorage.setItem('breakin-games',gameCount()+1);}catch(e){}};
+function openFb(){fb.classList.remove('hidden');fbMsg.focus();fbLink.classList.remove('nudge');fbLink.textContent='Send feedback';}
+fbLink.addEventListener('click',openFb);
+document.getElementById('fbClose').addEventListener('click',()=>fb.classList.add('hidden'));
+document.getElementById('fbSend').addEventListener('click',()=>{
+  const m=fbMsg.value.trim();
+  if(!m){fbOut.textContent='write something first';return;}
+  post('breakin_feedback',{name:fbName.value.trim()||null,message:m.slice(0,2000),
+    meta:{games:gameCount(),ua:navigator.userAgent,w:innerWidth,h:innerHeight}});
+  fbMsg.value='';fbOut.textContent='thanks — sent.';
+  setTimeout(()=>{fb.classList.add('hidden');fbOut.textContent='';},1200);
+});
+
 const COLS=11;
 let W,H,cell,rows,spawnMaxRow;
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
+const satEl=document.getElementById('sat');
 function fit(){
   const vw=Math.min(window.innerWidth,460);
-  const vh=window.innerHeight-HUD_RESERVE;
+  const sat=satEl.getBoundingClientRect().height||0;   // notch / status-bar inset in standalone mode
+  const vh=window.innerHeight-HUD_RESERVE-sat;
   cell=Math.max(22,Math.floor(vw/COLS));
   W=cell*COLS;
   rows=Math.max(12,Math.min(Math.floor(vh/cell),Math.round(COLS*1.7)));
@@ -299,10 +422,51 @@ function setMult(m){
   multSlider.value=mult;
   multVal.textContent='×'+mult;
   try{localStorage.setItem('breakin-mult',mult);}catch(e){}
-  if(mode==='attract'&&typeof ball!=='undefined'&&ball)resetBall();   // demo shows the new speed
+  if(mode==='attract'&&typeof ball!=='undefined'&&ball){   // retune the running demo ball, don't reset it
+    ball.base=Math.max(3.2,cell*0.135)*ballFactor();
+    ball.speed=Math.min(ball.base*1.9,ball.base*(1+placed*0.012));
+    setSpeed();
+  }
 }
 multSlider.addEventListener('input',()=>setMult(parseFloat(multSlider.value)));
 setMult(mult);
+
+// ---- touch controls (mobile only): on-screen buttons or device-tilt ----
+let touchCtl='buttons', heldDir=0, tiltGamma=0, tiltOn=false;
+try{const t=localStorage.getItem('breakin-touch');if(t==='buttons'||t==='tilt')touchCtl=t;}catch(e){}
+function onOrient(e){if(e.gamma!=null)tiltGamma=e.gamma;}
+async function enableTilt(){
+  if(tiltOn)return true;
+  try{
+    const D=window.DeviceOrientationEvent;
+    if(D&&typeof D.requestPermission==='function'){
+      if(await D.requestPermission()!=='granted')return false;
+    }
+    window.addEventListener('deviceorientation',onOrient);
+    tiltOn=true;return true;
+  }catch(e){return false;}
+}
+const markTouchBtns=()=>tctlBtns.forEach(b=>b.classList.toggle('on',b.dataset.t===touchCtl));
+async function setTouchCtl(t){
+  if(mode==='play')return;                    // locked mid-game
+  if(t==='tilt'&&!await enableTilt())t='buttons';   // fall back if gyro unavailable / denied
+  touchCtl=t;
+  try{localStorage.setItem('breakin-touch',t);}catch(e){}
+  markTouchBtns();
+}
+if(isTouch){
+  tctl.classList.remove('hidden');
+  markTouchBtns();                             // reflect the saved choice — no permission prompt on load
+  tctlBtns.forEach(b=>b.addEventListener('click',()=>setTouchCtl(b.dataset.t)));
+  tpad.querySelectorAll('.tp').forEach(el=>{
+    const clr=()=>{heldDir=0;};
+    el.addEventListener('pointerdown',e=>{e.preventDefault();heldDir=+el.dataset.d;});
+    el.addEventListener('pointerup',clr);
+    el.addEventListener('pointerleave',clr);
+    el.addEventListener('pointercancel',clr);
+  });
+}
+function showTpad(on){tpad.classList.toggle('hidden',!(on&&isTouch&&touchCtl==='buttons'));}
 
 const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
 const filled=(r,c)=>r>=0&&r<rows&&c>=0&&c<COLS&&!!grid[r][c];
@@ -334,9 +498,11 @@ function reset(){
   over=false;
   startTime=performance.now();lastT=startTime;
 }
-function resetBall(){                 // hovers 2 cells above the bar, then launches upward at a random angle
+function resetBall(){                 // launches immediately, upward at a random angle, from 2 cells above the bar
   const sp=Math.max(3.2,cell*0.135)*ballFactor();
-  ball={x:W/2,y:paddleY()-cell*2,r:Math.max(4.5,cell*0.26),vx:0,vy:0,speed:sp,base:sp,hold:42};
+  const ang=-Math.PI/2+(Math.random()-0.5);   // straight up +/- ~0.5 rad
+  ball={x:W/2,y:paddleY()-cell*2,r:Math.max(4.5,cell*0.26),
+        vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,speed:sp,base:sp};
   pending=null;stuckMs=0;stuckX=ball.x;stuckY=ball.y;
 }
 
@@ -397,10 +563,12 @@ function endGame(reason){
   msgEl.innerHTML=`<b>${blk}</b> blocks &times; <b>${mult}</b> = <b>${score}</b><br><span style="color:#7f8ca0;font-size:13px">${secs}s survived</span>`;
   startBtn.textContent='Play again';
   overlay.classList.remove('hidden');
-  hud.classList.add('hidden');
+  hud.classList.add('hidden');showTpad(false);
+  bumpGames();
+  if(gameCount()%4===0){fbLink.classList.add('nudge');fbLink.textContent='★ Enjoying Breakin? Tell me what to fix / add →';}
   renderBoard();
   if(qualifies(score)){                    // decide from the board already loaded — no network wait, no race
-    pendingScore={score,secs,blocks:blk};
+    pendingScore={score,secs,blocks:blk,mult};
     nameInput.value=loadName();
     nameEntry.classList.remove('hidden');
   }else{
@@ -422,15 +590,16 @@ function startAttract(){                   // demo playing behind the menu
   msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.';
   startBtn.textContent='Play';
   overlay.classList.remove('hidden');
-  hud.classList.add('hidden');
+  hud.classList.add('hidden');showTpad(false);
   fit();reset();kick();
 }
 function startPlay(){
   if(pendingScore)commitPending();         // save an unsaved qualifying score before replaying (local write is sync)
-  mode='play';over=false;
+  if(isTouch&&touchCtl==='tilt'&&!tiltOn)enableTilt();   // Play is a user gesture — ok to ask now
+  mode='play';over=false;heldDir=0;
   nameEntry.classList.add('hidden');
   overlay.classList.add('hidden');
-  hud.classList.remove('hidden');
+  hud.classList.remove('hidden');showTpad(true);
   fit();reset();kick();
 }
 
@@ -449,34 +618,25 @@ function step(dt){
   const f=dt/16.667;
 
   if(mode==='attract'){                   // demo bot: predict the ball's crossing and slide toward it
-    if(ball.hold<=0){
-      let x=ball.x,y=ball.y,vx=ball.vx,vy=ball.vy,g=1200;
-      const target=paddleY()-ball.r;
-      while(y<target&&g-->0){
-        x+=vx;y+=vy;
-        if(x<ball.r){x=ball.r;vx=-vx;}else if(x>W-ball.r){x=W-ball.r;vx=-vx;}
-        if(y<ball.r){y=ball.r;vy=-vy;}
-      }
-      const aim=vy>0?x:paddle.x;
-      paddle.x+=(clamp(aim,paddle.w/2,W-paddle.w/2)-paddle.x)*Math.min(1,0.16*f);
+    let x=ball.x,y=ball.y,vx=ball.vx,vy=ball.vy,g=1200;
+    const target=paddleY()-ball.r;
+    while(y<target&&g-->0){
+      x+=vx;y+=vy;
+      if(x<ball.r){x=ball.r;vx=-vx;}else if(x>W-ball.r){x=W-ball.r;vx=-vx;}
+      if(y<ball.r){y=ball.r;vy=-vy;}
     }
-  }else{                                   // player: keyboard
+    const aim=vy>0?x:paddle.x;
+    paddle.x+=(clamp(aim,paddle.w/2,W-paddle.w/2)-paddle.x)*Math.min(1,0.16*f);
+  }else{                                   // player
     let dir=0;
     if(held.has('arrowleft')||held.has('a'))dir-=1;
     if(held.has('arrowright')||held.has('d'))dir+=1;
-    if(dir)paddle.x=clamp(paddle.x+dir*cell*0.42*f,paddle.w/2,W-paddle.w/2);
-  }
-
-  if(ball.hold>0){                        // hover above the bar, aimable, then random upward launch
-    ball.hold-=f;
-    ball.x=clamp(paddle.x,ball.r,W-ball.r);
-    ball.y=paddleY()-cell*2;
-    if(ball.hold<=0){
-      const ang=-Math.PI/2+(Math.random()-0.5);   // straight up +/- ~0.5 rad
-      ball.vx=Math.cos(ang)*ball.speed;
-      ball.vy=Math.sin(ang)*ball.speed;
+    if(isTouch&&touchCtl==='buttons')dir+=heldDir;
+    if(dir)paddle.x=clamp(paddle.x+(dir<0?-1:1)*cell*0.42*f,paddle.w/2,W-paddle.w/2);
+    if(isTouch&&touchCtl==='tilt'&&tiltOn){
+      const g=clamp(tiltGamma,-30,30);     // device left/right tilt in degrees
+      paddle.x=clamp(paddle.x+g*cell*0.021*f,paddle.w/2,W-paddle.w/2);
     }
-    return;
   }
 
   const steps=Math.max(1,Math.ceil(Math.max(Math.abs(ball.vx),Math.abs(ball.vy))*f/(cell*0.5)));
@@ -563,15 +723,6 @@ function loop(t){
   }
   requestAnimationFrame(loop);
 }
-
-function movePaddle(clientX){
-  const rect=canvas.getBoundingClientRect();
-  const x=(clientX-rect.left)*(W/rect.width);
-  paddle.x=clamp(x,paddle.w/2,W-paddle.w/2);
-}
-// touch only — drag the paddle on phones/tablets. No mouse control (keyboard on desktop).
-addEventListener('pointermove',e=>{if(mode==='play'&&e.pointerType!=='mouse')movePaddle(e.clientX);});
-addEventListener('pointerdown',e=>{if(mode==='play'&&e.pointerType!=='mouse')movePaddle(e.clientX);});
 
 startBtn.addEventListener('click',startPlay);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)rafOn=false;else kick();});
