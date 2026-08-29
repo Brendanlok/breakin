@@ -545,6 +545,8 @@ document.getElementById('fbSend').addEventListener('click',()=>{
 
 const COLS=11;
 let W,H,cell,rows,spawnMaxRow;
+let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
+let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
 const satEl=document.getElementById('sat');
 function fit(){
@@ -557,12 +559,14 @@ function fit(){
   H=rows*cell;
   spawnMaxRow=rows-2;                 // blocks may form right down to the row above the paddle
   canvas.width=W;canvas.height=H;
+  if(grid&&grid.length!==rows){       // viewport changed row count (e.g. phone rotate) — keep grid in sync so draw()/step() don't read past its end
+    const g=newGrid();
+    for(let r=0;r<Math.min(rows,grid.length);r++)g[r]=grid[r];
+    grid=g;
+  }
 }
 addEventListener('resize',()=>{fit();if(ball&&mode!=='play')draw();});
 fit();
-
-let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
-let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 
 // Ball speed / score multiplier — set on the menu only, locked once a game starts.
 // score = blocks generated x mult;  faster ball = higher mult.
