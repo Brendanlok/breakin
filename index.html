@@ -126,6 +126,19 @@
   #admin button.danger{background:#b3402f;color:#fff;}
   #admin #aOut{font-size:11px;color:#8fa0b6;background:#0b1220;border-radius:8px;padding:8px;
     max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0 0 10px;min-height:14px;}
+  #gate{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+    background:rgba(4,7,11,.86);padding:20px;}
+  #gate .gpanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:20px;
+    width:280px;max-width:92vw;color:#e8edf4;}
+  #gate .gtitle{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#7f8ca0;margin-bottom:12px;}
+  #gate input{width:100%;box-sizing:border-box;padding:11px 12px;font-size:15px;border-radius:9px;
+    border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;}
+  #gate input:focus{border-color:#5fb0ff;}
+  #gErr{font-size:12px;color:#e6957f;min-height:15px;margin:8px 0 12px;}
+  #gate .grow{display:flex;gap:8px;}
+  #gate button{padding:10px 16px;font-size:14px;font-weight:700;border:0;border-radius:9px;cursor:pointer;}
+  #gOk{background:#5fb0ff;color:#05121f;}
+  #gCancel{background:#1b2637;color:#cdd6e4;}
   #linkbtn,#fbLink{background:none;border:0;color:#6b7a90;font-size:12px;letter-spacing:.03em;
     cursor:pointer;padding:4px;margin-top:12px;text-decoration:underline;}
   #fbLink.nudge{color:#8fd6a0;text-decoration:none;font-weight:700;}
@@ -152,6 +165,14 @@
   <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
   <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
   <div class="stat st-score"><b id="hScore">0</b><i>score</i></div>
+</div>
+<div id="gate" class="hidden">
+  <div class="gpanel">
+    <div class="gtitle">Admin passphrase</div>
+    <input id="gPass" type="password" autocomplete="off" spellcheck="false" placeholder="passphrase">
+    <div id="gErr"></div>
+    <div class="grow"><button id="gOk">Enter</button><button id="gCancel">Cancel</button></div>
+  </div>
 </div>
 <div id="admin" class="hidden">
   <div class="apanel">
@@ -345,6 +366,9 @@ const admin=document.getElementById('admin');
 const aPass=document.getElementById('aPass');
 const aId=document.getElementById('aId');
 const aOut=document.getElementById('aOut');
+const gate=document.getElementById('gate');
+const gPass=document.getElementById('gPass');
+const gErr=document.getElementById('gErr');
 let adminOK=false;
 async function verifyPass(p){
   if(!p)return false;
@@ -355,18 +379,28 @@ async function verifyPass(p){
     return !!(j&&j.ok);
   }catch(e){return null;}                            // null = couldn't reach the server
 }
-async function openAdmin(){
+function showAdmin(){admin.classList.remove('hidden');aPass.focus();}
+function openAdmin(){                                // in-page passphrase gate (native prompt() is blocked here)
   if(fb)fb.classList.add('hidden');
-  if(!adminOK){
-    const p=prompt('Admin passphrase');
-    if(p===null)return;                              // cancelled
-    const ok=await verifyPass(p);
-    if(ok===null){alert("Couldn't reach the server to check the passphrase.");return;}
-    if(!ok){alert('Wrong passphrase.');return;}
-    adminOK=true;aPass.value=p;
-  }
-  admin.classList.remove('hidden');aPass.focus();
+  if(adminOK){showAdmin();return;}
+  gate.classList.remove('hidden');gErr.textContent='';gPass.value='';gPass.focus();
 }
+async function submitGate(){
+  const p=gPass.value.trim();
+  if(!p){gErr.textContent='enter the passphrase';return;}
+  gErr.textContent='checking…';
+  const ok=await verifyPass(p);
+  if(ok===null){gErr.textContent="can't reach the server";return;}
+  if(!ok){gErr.textContent='wrong passphrase';return;}
+  adminOK=true;aPass.value=p;
+  gate.classList.add('hidden');showAdmin();
+}
+document.getElementById('gOk').addEventListener('click',submitGate);
+document.getElementById('gCancel').addEventListener('click',()=>gate.classList.add('hidden'));
+gPass.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();submitGate();}
+  else if(e.key==='Escape')gate.classList.add('hidden');
+});
 function closeAdmin(){admin.classList.add('hidden');aOut.textContent='';if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();}
 addEventListener('hashchange',()=>{if((location.hash||'').toLowerCase()==='#admin')openAdmin();});
 let badgeTaps=[];
@@ -376,12 +410,16 @@ badgeEl.addEventListener('click',()=>{
   if(badgeTaps.length>=5){badgeTaps=[];openAdmin();}
 });
 document.getElementById('aClose').addEventListener('click',closeAdmin);
+let resetArmed=0;
 async function adminCall(action){
   const secret=aPass.value.trim();
   if(!secret){aOut.textContent='enter the passphrase first';return;}
   const body={action,secret};
   if(action==='delete_one'){body.target=aId.value.trim();if(!body.target){aOut.textContent='paste a row id';return;}}
-  if(action==='reset'&&!confirm('Wipe the ENTIRE leaderboard? This cannot be undone.'))return;
+  if(action==='reset'){
+    if(Date.now()-resetArmed>4000){resetArmed=Date.now();aOut.textContent='Wipe the ENTIRE leaderboard? Click "Reset board" again within 4s to confirm.';return;}
+    resetArmed=0;
+  }
   aOut.textContent='working...';
   try{
     const r=await fetch(RPC_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
