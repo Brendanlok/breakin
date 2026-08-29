@@ -2,8 +2,9 @@
 -- Adds: score plausibility guard, a feedback inbox, a crash-report inbox,
 -- and extends the admin RPC to read them.
 --
--- >>> BEFORE RUNNING: in section 4 below, replace 'adminadmin' with the SAME
---     passphrase you set in admin.sql, otherwise you'll reset it. <<<
+-- >>> BEFORE RUNNING: in section 4, replace __SET_YOUR_OWN_PASSPHRASE__ with a
+--     private string. Keep it out of git and out of any screenshot. It's the
+--     only thing standing between the public internet and "wipe the leaderboard".
 
 -- ---------- 1. score columns + plausibility ----------
 alter table public.breakin_scores add column if not exists mult numeric;
@@ -64,7 +65,8 @@ create or replace function public.breakin_admin(action text, secret text, target
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare n int;
 begin
-  if secret is null or secret <> 'adminadmin' then    -- keep in sync with admin.sql
+  -- >>> set your own passphrase here. Do NOT commit the real value anywhere. <<<
+  if secret is null or secret <> '__SET_YOUR_OWN_PASSPHRASE__' then
     return jsonb_build_object('ok', false, 'error', 'bad passphrase');
   end if;
 
@@ -96,7 +98,7 @@ begin
     return jsonb_build_object('ok', true, 'deleted', n);
 
   elsif action = 'reset' then
-    delete from breakin_scores;
+    delete from breakin_scores where id is not null;   -- WHERE clause: Supabase blocks unqualified DELETE
     get diagnostics n = row_count;
     return jsonb_build_object('ok', true, 'deleted', n);
 

@@ -11,18 +11,24 @@ long as you can.
 
 - `index.html` — the whole game. Vanilla JS + canvas, no dependencies, no build step.
   A bot plays a live demo behind the start menu; hit Play to take over.
-- `leaderboard.sql` — one-time Supabase setup for the shared leaderboard.
+- `manifest.json`, `icon-192.png`, `icon-512.png` — PWA / add-to-home-screen.
+- `leaderboard.sql` — the original `breakin_scores` table + RLS.
+- `backend-v2.sql` — score plausibility guard, feedback + crash-report inboxes,
+  and the admin RPC. **Set your own passphrase in section 4 before running; never
+  commit the real value.**
 
 ## Leaderboard
 
-Top-10, shared across everyone, no sign-in. Enter a name at the end if your score
-qualifies. Backed by a single Supabase table (`breakin_scores`) with row-level
-security: anyone may read the board and insert one score, nobody can edit or delete.
-If the backend is unreachable the game falls back to a per-device board kept in
-`localStorage`.
+Top-10, shared, no sign-in. Enter a name at the end if you qualify. Backed by the
+Supabase table `breakin_scores` (RLS: anyone reads / inserts one score, nobody
+edits or deletes). A BEFORE-INSERT trigger rejects implausible scores. If the
+backend is unreachable the game falls back to a per-device `localStorage` board.
 
-To wire it up: run `leaderboard.sql` in the Supabase SQL editor, then set `LB_URL`
-and `LB_KEY` near the top of the `<script>` in `index.html`.
+## Admin
+
+Open `…/#admin` (or tap the "Breakout, in reverse" badge 5×). Passphrase-gated,
+server-side — the passphrase lives only in the `breakin_admin` function.
+Stats / view scores / view feedback / view crash reports / delete a row / reset.
 
 ## Deploy
 
