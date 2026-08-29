@@ -142,8 +142,9 @@ const RPC_URL=LB_URL.replace(/\/[^/]+$/,'/rpc/breakin_admin');
 const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20;
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const shortDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString(undefined,{month:'short',day:'numeric'});};
-const fullDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':d.toLocaleString();};
+const pad2=n=>String(n).padStart(2,'0');
+const shortDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':pad2(d.getDate())+'.'+pad2(d.getMonth()+1)+'.'+d.getFullYear();};
+const fullDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':shortDate(iso)+' '+pad2(d.getHours())+':'+pad2(d.getMinutes());};
 const loadLocal=()=>{try{return JSON.parse(localStorage.getItem('breakin-scores'))||[];}catch(e){return[];}};
 const saveLocal=l=>{try{localStorage.setItem('breakin-scores',JSON.stringify(l.slice(0,MAXBOARD)));}catch(e){}};
 const loadName=()=>{try{return localStorage.getItem('breakin-name')||'';}catch(e){return'';}};
