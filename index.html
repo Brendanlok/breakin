@@ -156,7 +156,7 @@ function fit(){
   W=cell*COLS;
   rows=Math.max(14,Math.min(Math.floor(vh/cell),Math.round(COLS*1.7)));
   H=rows*cell;
-  spawnMaxRow=rows-3;                 // bottom strip stays clear for the paddle
+  spawnMaxRow=rows-2;                 // blocks may form right down to the row above the paddle
   canvas.width=W;canvas.height=H;
 }
 addEventListener('resize',()=>{fit();if(ball&&!running)draw();});
@@ -172,7 +172,7 @@ function setControl(c){
 ctlBtns.forEach(b=>b.addEventListener('click',()=>setControl(b.dataset.c)));
 setControl(control);
 
-let grid,ball,paddle,lives,placed,empties,pending,noPlace,lastHit,running=false,over=false,startTime,lastT,elapsed=0;
+let grid,ball,paddle,lives,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,running=false,over=false,startTime,lastT,elapsed=0;
 
 const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
 const filled=(r,c)=>r>=0&&r<rows&&c>=0&&c<COLS&&!!grid[r][c];
@@ -207,7 +207,7 @@ function reset(){
 function resetBall(){                 // hovers 2 cells above the bar, then launches upward at a random angle
   const sp=Math.max(3.2,cell*0.135);
   ball={x:W/2,y:paddleY()-cell*2,r:Math.max(4.5,cell*0.26),vx:0,vy:0,speed:sp,base:sp,hold:42};
-  pending=null;lastHit=performance.now();
+  pending=null;stuckMs=0;stuckX=ball.x;stuckY=ball.y;
 }
 
 // a bounce happened: earmark the empty cell the ball is leaving; it turns solid once the ball clears it
@@ -338,7 +338,7 @@ function step(dt){
       ball.vy=-Math.abs(ball.vy);
       setSpeed();
       ball.y=pyv-ball.r-1;
-      noPlace=0;lastHit=performance.now();    // ball still reaches the paddle — not boxed in
+      noPlace=0;stuckMs=0;                    // ball still reaches the paddle — not boxed in
       hit=true;
     }
 
@@ -353,8 +353,10 @@ function step(dt){
   }
   resolvePending();
   unstick();
-  if(!over&&performance.now()-lastHit>12000)      // catch-all: ball hasn't come back to the paddle
-    endGame('The ball got walled off from your paddle.');
+  if(!over){                                      // trapped in one spot for >2s (walled off) = game over
+    if(Math.hypot(ball.x-stuckX,ball.y-stuckY)>cell*2.5){stuckX=ball.x;stuckY=ball.y;stuckMs=0;}
+    else if((stuckMs+=dt)>2000)endGame('The ball got walled off from your paddle.');
+  }
 }
 
 function draw(){
