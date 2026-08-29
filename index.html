@@ -264,9 +264,11 @@ async function lbFetch(){
 }
 async function lbSubmit(e){
   if(!lbOn())return false;
+  const core={name:e.name,score:e.score,secs:e.secs,blocks:e.blocks};
+  const send=b=>fetch(LB_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(b)});
   try{
-    const r=await fetch(LB_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
-      body:JSON.stringify({name:e.name,score:e.score,secs:e.secs,blocks:e.blocks,mult:e.mult,ua:navigator.userAgent})});
+    let r=await send({...core,mult:e.mult,ua:navigator.userAgent});
+    if(!r.ok)r=await send(core);            // fall back if the mult/ua columns aren't there yet
     return r.ok;
   }catch(err){return false;}
 }
