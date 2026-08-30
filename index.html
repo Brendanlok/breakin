@@ -1012,6 +1012,8 @@ function step(dt){
       ball.y=pyv-ball.r-1;
       noPlace=0;stuckMs=0;                    // ball still reaches the paddle — not boxed in
       hit=true;
+      const pc=Math.floor(ball.x/cell), pr=spawnMaxRow-1;   // every paddle bounce crusts the row just above it — otherwise a vertical rally places nothing
+      if(pc>=0&&pc<COLS&&pr>=0&&!grid[pr][pc]&&!(pending&&pending.r===pr&&pending.c===pc))pending={r:pr,c:pc,age:0};
     }
 
     if(hit)bounce();
