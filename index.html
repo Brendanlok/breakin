@@ -238,6 +238,10 @@
   #vsCd #vsCdNum{font-size:96px;font-weight:800;color:#eaf2ff;line-height:1;
     text-shadow:0 0 40px rgba(95,176,255,.55);font-variant-numeric:tabular-nums;}
   #vsCd .vsCdSub{margin-top:12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8fd6a0;}
+  #ptip{position:fixed;left:0;right:0;top:calc(94px + env(safe-area-inset-top,0px));text-align:center;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#5f6d82;pointer-events:none;z-index:30;
+    opacity:0;transition:opacity .5s;}
+  #ptip.show{opacity:1;}
   .hidden{display:none!important;}
 </style>
 </head>
@@ -250,6 +254,7 @@
   <div class="stat st-score"><b id="hScore">0</b><i>score</i></div>
   <div class="stat st-opp hidden" id="hudOpp"><b id="hOpp">0</b><i id="hOppName">rival</i></div>
 </div>
+<div id="ptip" class="hidden">tap the top to pause</div>
 <div id="gate" class="hidden">
   <div class="gpanel">
     <div class="gtitle">Admin passphrase</div>
@@ -674,6 +679,7 @@ document.getElementById('fbSend').addEventListener('click',()=>{
 });
 
 const COLS=11;
+const ROWS=19;                        // grid is always 11 x 19 — identical cell count on phone and desktop; only the pixel size of a cell changes
 let W,H,cell,rows,spawnMaxRow;
 let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
@@ -684,9 +690,9 @@ function fit(){
   const vw=Math.min(window.innerWidth,460);
   const sat=satEl.getBoundingClientRect().height||0;   // notch / status-bar inset in standalone mode
   const vh=window.innerHeight-HUD_RESERVE-sat;
-  cell=Math.max(22,Math.floor(vw/COLS));
+  rows=ROWS;
+  cell=Math.max(16,Math.floor(Math.min(vw/COLS,vh/rows)));   // shrink the cell to fit the shorter axis — never drop rows
   W=cell*COLS;
-  rows=Math.max(12,Math.min(Math.floor(vh/cell),Math.round(COLS*1.7)));
   H=rows*cell;
   spawnMaxRow=rows-2;                 // blocks may form right down to the row above the paddle
   canvas.width=W;canvas.height=H;
@@ -901,6 +907,16 @@ function startPlay(){
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');
   hud.classList.remove('hidden');showTpad(true);
   fit();reset();kick();
+  maybeShowPtip();
+}
+
+// mobile: no keyboard — nudge the tap-to-pause gesture once
+const ptip=document.getElementById('ptip');
+function maybeShowPtip(){
+  if(!isTouch||versus)return;
+  try{if(localStorage.getItem('breakin-ptip'))return;localStorage.setItem('breakin-ptip','1');}catch(e){}
+  ptip.classList.remove('hidden');requestAnimationFrame(()=>ptip.classList.add('show'));
+  setTimeout(()=>{ptip.classList.remove('show');setTimeout(()=>ptip.classList.add('hidden'),600);},2800);
 }
 
 // ---- pause (Esc during a game) ----
@@ -949,6 +965,13 @@ document.getElementById('pResume').addEventListener('click',beginResume);
 document.getElementById('pExit').addEventListener('click',askExit);
 document.getElementById('pQuit').addEventListener('click',exitToMenu);
 document.getElementById('pBack').addEventListener('click',cancelExit);
+
+// mobile: tap the upper half of the play area to pause (desktop uses Esc)
+canvas.addEventListener('pointerdown',e=>{
+  if(!isTouch||mode!=='play'||versus||paused||resumeIn>0)return;
+  const r=canvas.getBoundingClientRect();
+  if(e.clientY-r.top < r.height*0.5){e.preventDefault();pauseGame();}
+});
 
 const held=new Set();
 let adminSeq='';
