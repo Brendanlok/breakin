@@ -570,6 +570,7 @@ document.getElementById('fbSend').addEventListener('click',()=>{
 const COLS=11;
 let W,H,cell,rows,spawnMaxRow;
 let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
+let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
 const satEl=document.getElementById('sat');
@@ -672,6 +673,7 @@ function minAngle(){                  // stop the ball crawling along / trapping
 
 function reset(){
   grid=newGrid();                    // starts completely empty
+  flashes.length=0;
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;pending=null;   // one life — a miss ends the game
   empties=spawnMaxRow*COLS;
@@ -703,6 +705,7 @@ function resolvePending(){
   if(grid[r][c]){pending=null;return;}
   if(!ballInCell(r,c)){                                 // NEVER drop a block onto the ball
     grid[r][c]=1;placed++;empties--;noPlace=0;pending=null;
+    flashes.push({r,c,t:performance.now()});            // pop on the cell that just turned solid
     ball.speed=Math.min(ball.base*1.9,ball.base*(1+placed*0.012));
     setSpeed();
     if(empties<=0)endGame('Arena sealed');
@@ -942,6 +945,20 @@ function draw(){
     if(!grid[r][c])continue;
     ctx.fillStyle=`hsl(${(r*9+c*4+205)%360} ${alive?70:60}% ${alive?62:55}%)`;
     ctx.fillRect(c*cell+1,r*cell+1,cell-2,cell-2);
+  }
+  if(flashes.length){                     // draw the placement pop: brief bright, glowing, overshooting square
+    const now=performance.now();
+    for(let i=flashes.length-1;i>=0;i--){
+      const fl=flashes[i],e=1-(now-fl.t)/260;         // ~260ms
+      if(e<=0){flashes.splice(i,1);continue;}
+      const hue=(fl.r*9+fl.c*4+205)%360,grow=cell*0.34*e*e;
+      ctx.save();
+      ctx.globalAlpha=Math.min(1,e*1.7);
+      ctx.fillStyle=`hsl(${hue} 92% 82%)`;
+      ctx.shadowColor=`hsl(${hue} 90% 72%)`;ctx.shadowBlur=16*e;
+      ctx.fillRect(fl.c*cell+1-grow,fl.r*cell+1-grow,cell-2+grow*2,cell-2+grow*2);
+      ctx.restore();
+    }
   }
   ctx.fillStyle='#dfe9f7';
   const pw=paddle.w,ph=Math.max(8,cell*0.28),px=paddle.x-pw/2,py=paddleY(),rr=6;
