@@ -315,6 +315,8 @@ const fullDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':s
 const loadLocal=()=>{try{return JSON.parse(localStorage.getItem('breakin-scores'))||[];}catch(e){return[];}};
 const saveLocal=l=>{try{localStorage.setItem('breakin-scores',JSON.stringify(l.slice(0,MAXBOARD)));}catch(e){}};
 const loadName=()=>{try{return localStorage.getItem('breakin-name')||'';}catch(e){return'';}};
+const loadBest=()=>{try{return +localStorage.getItem('breakin-best')||0;}catch(e){return 0;}};
+const saveBest=n=>{try{localStorage.setItem('breakin-best',n);}catch(e){}};
 
 let remoteBoard=null;        // array once the shared board loads this session; null = offline / not configured
 let pendingScore=null;
@@ -734,10 +736,15 @@ function endGame(reason){
   if(mode==='attract')return;             // loop() will quietly restart the demo next frame
   mode='over';
   const secs=Math.floor(elapsed), blk=placed, score=Math.round(blk*mult);
+  const prevBest=loadBest(), newBest=score>0&&score>prevBest;
+  if(newBest)saveBest(score);
+  const bestShown=Math.max(prevBest,score);
   boardExpanded=false;                     // start the game-over board collapsed so the screen stays short
   badgeEl.textContent=reason||'Game over';
   titleEl.textContent='GAME OVER';
-  msgEl.innerHTML=`<b>${blk}</b> blocks &times; <b>${mult}</b> = <b>${score}</b><br><span style="color:#7f8ca0;font-size:13px">${secs}s survived</span>`;
+  msgEl.innerHTML=`<b>${blk}</b> blocks &times; <b>${mult}</b> = <b>${score}</b><br><span style="color:#7f8ca0;font-size:13px">${secs}s survived</span>`
+    +(newBest?`<br><span style="color:#ffd25f;font-size:13px;font-weight:700">&#9733; New personal best!</span>`
+      :bestShown>0?`<br><span style="color:#7f8ca0;font-size:13px">Best ${bestShown}</span>`:'');
   startBtn.textContent='Play again';
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');showTpad(false);
