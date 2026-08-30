@@ -228,11 +228,22 @@
   #compete #cName{width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;text-align:center;
     border-radius:9px;border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;font-family:inherit;}
   #compete #cName:focus{border-color:#5fb0ff;}
-  #compete #cResultTitle{font-size:17px;font-weight:800;letter-spacing:.01em;color:#eaf2ff;}
+  #compete #cResultTitle{font-size:22px;font-weight:800;letter-spacing:.01em;color:#eaf2ff;}
+  #compete #cResultTitle.win{color:#8fd6a0;text-shadow:0 0 26px rgba(143,214,160,.4);}
+  #compete #cResultTitle.lose{color:#ff9d8a;}
+  #compete #cResultTitle.tie{color:#ffd25f;}
   #compete #cResultScore{font-size:14px;color:#c4cedd;font-variant-numeric:tabular-nums;margin-top:-4px;}
   #hud .st-opp b{color:#8fd6a0;}
   #hud .st-opp i{max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #hud .st-opp.ahead b{color:#ff9d8a;}
+  #hud .st-opp.leading b{color:#8fd6a0;}
+  #hud .st-opp.target{outline:1px solid rgba(255,210,95,.55);box-shadow:0 0 18px rgba(255,210,95,.22);}
+  #hud .st-opp.target b{color:#ffd25f;}
+  #vsMsg{position:fixed;left:0;right:0;top:32%;text-align:center;z-index:32;pointer-events:none;padding:0 20px;
+    font-size:15px;font-weight:800;letter-spacing:.02em;color:#eaf2ff;
+    text-shadow:0 2px 12px rgba(0,0,0,.7),0 0 24px rgba(95,176,255,.4);
+    opacity:0;transform:translateY(-8px);transition:opacity .3s,transform .3s;}
+  #vsMsg.show{opacity:1;transform:none;}
   #vsCd{position:fixed;inset:0;z-index:46;display:flex;flex-direction:column;align-items:center;justify-content:center;
     background:rgba(6,9,14,.6);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}
   #vsCd #vsCdNum{font-size:96px;font-weight:800;color:#eaf2ff;line-height:1;
@@ -347,6 +358,7 @@
   </div>
 </div>
 <div id="vsCd" class="hidden"><span id="vsCdNum">3</span><span class="vsCdSub">match starting</span></div>
+<div id="vsMsg" class="hidden"></div>
 <div id="overlay">
   <div class="badge" id="badge">Breakout, in reverse</div>
   <h1>BREAKIN</h1>
@@ -1156,6 +1168,7 @@ function frame(t){
     hTime.textContent=Math.floor(elapsed);
     hBlocks.textContent=placed;
     hScore.textContent=Math.round(placed*mult);
+    if(versus)vsRenderBar();               // keep ahead/behind + the "you overtook them" callout live, not just on the 1.3s poll
   }
   requestAnimationFrame(loop);
 }
@@ -1187,6 +1200,15 @@ const hOpp=document.getElementById('hOpp');
 const hOppName=document.getElementById('hOppName');
 const vsCd=document.getElementById('vsCd');
 const vsCdNum=document.getElementById('vsCdNum');
+const vsMsg=document.getElementById('vsMsg');
+let vsMsgT=0;
+function vsToast(text){                       // brief centred match callout (opponent finished / lead change)
+  vsMsg.textContent=text;
+  vsMsg.classList.remove('hidden');
+  requestAnimationFrame(()=>vsMsg.classList.add('show'));
+  clearTimeout(vsMsgT);
+  vsMsgT=setTimeout(()=>{vsMsg.classList.remove('show');setTimeout(()=>vsMsg.classList.add('hidden'),350);},3200);
+}
 
 const CODE_ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no I L O / 0 1 - unambiguous read aloud or typed
 const makeCode=()=>{let s='';for(let i=0;i<6;i++)s+=CODE_ALPHABET[Math.floor(Math.random()*CODE_ALPHABET.length)];return s;};
@@ -1347,6 +1369,8 @@ function vsBeginCountdown(at,m){
 }
 function startVersus(){
   versus=true;vs.counting=false;vs.resultShown=false;vs.oppDropped=false;vs.oppScore=0;vs.oppDone=false;vs.myFinal=0;
+  vs._doneSaid=vs._dropSaid=vs._overtookSaid=vs._aheadAtFinish=false;   // reset match-callout latches (also for a rematch)
+  cResultTitle.classList.remove('win','lose','tie');
   setMult(vs.mult);
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');compete.classList.add('hidden');nameEntry.classList.add('hidden');
@@ -1359,9 +1383,28 @@ function startVersus(){
 function vsRenderBar(){
   if(!vs)return;
   const mine=(mode==='play'||mode==='over')?Math.round(placed*mult):0;
-  hOppName.textContent=vs.oppName||'rival';
-  hOpp.textContent=vs.oppDropped?'left':vs.oppScore;
+  const name=vs.oppName||'Rival';
+  const done=vs.oppDone&&!vs.oppDropped;
+  hOppName.textContent=vs.oppDropped?'left':(done?(mine>vs.oppScore?'ahead':'to beat'):name);
+  hOpp.textContent=vs.oppDropped?'—':vs.oppScore;
   hudOpp.classList.toggle('ahead',!vs.oppDropped&&vs.oppScore>mine);
+  hudOpp.classList.toggle('leading',!vs.oppDropped&&mine>vs.oppScore&&(done||mine>0));
+  hudOpp.classList.toggle('target',done&&mine<=vs.oppScore);
+
+  if(vs.oppDropped){
+    if(!vs._dropSaid){vs._dropSaid=true;vsToast(name+' left the match');}
+    return;
+  }
+  if(done&&!vs._doneSaid){
+    vs._doneSaid=true;
+    vs._aheadAtFinish=mine>vs.oppScore;
+    vsToast(vs._aheadAtFinish?name+' finished on '+vs.oppScore+" — you're ahead"
+                             :name+' finished — '+vs.oppScore+' to beat');
+  }
+  if(done&&vs._doneSaid&&!vs._aheadAtFinish&&!vs._overtookSaid&&mine>vs.oppScore){
+    vs._overtookSaid=true;
+    vsToast('Ahead '+mine+' — '+vs.oppScore);
+  }
 }
 function vsEndGame(reason){
   clearInterval(vs.push);vs.push=null;
@@ -1370,6 +1413,7 @@ function vsEndGame(reason){
   hud.classList.add('hidden');hudOpp.classList.add('hidden');showTpad(false);
   compete.classList.remove('hidden');showCView('result');
   cRematch.classList.add('hidden');
+  cResultTitle.classList.remove('win','lose','tie');
   cResultTitle.textContent=reason||'Run over';
   cResultScore.textContent='Your score: '+score;
   document.getElementById('cResultOpp').textContent=vs.oppName||'your opponent';
@@ -1382,8 +1426,11 @@ function vsRenderResult(){
   if(!settled)return;                        // still "Your score: N / waiting for X..."
   vs.resultShown=true;
   const me=vs.myFinal||0,op=vs.oppDone?vs.oppScore:0,who=vs.oppName||'Opponent';
-  cResultTitle.textContent=(!vs.oppDone&&vs.oppDropped)?'You win - opponent left'
+  const win=(!vs.oppDone&&vs.oppDropped)||me>op, tie=vs.oppDone&&me===op;
+  cResultTitle.textContent=(!vs.oppDone&&vs.oppDropped)?'You win — opponent left'
     :me>op?'You win':op>me?who+' wins':'Dead heat';
+  cResultTitle.classList.remove('win','lose','tie');
+  cResultTitle.classList.add(tie?'tie':win?'win':'lose');
   cResultScore.textContent='You '+me+'   vs   '+who+' '+op;
 }
 function hostRematch(){
@@ -1400,6 +1447,7 @@ function vsAbort(){
   if(wasVersus||!overlay.classList.contains('hidden')){
     compete.classList.remove('hidden');showCView('result');
     cRematch.classList.add('hidden');cResultWait.classList.add('hidden');
+    cResultTitle.classList.remove('win','lose','tie');
     cResultTitle.textContent='The other player left';
     cResultScore.textContent='';
   }
