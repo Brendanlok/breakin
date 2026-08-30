@@ -233,6 +233,12 @@
   #compete #cResultTitle.lose{color:#ff9d8a;}
   #compete #cResultTitle.tie{color:#ffd25f;}
   #compete #cResultScore{font-size:14px;color:#c4cedd;font-variant-numeric:tabular-nums;margin-top:-4px;}
+  #compete #cArenas{display:flex;gap:18px;justify-content:center;margin:2px 0;}
+  #compete .carena{display:flex;flex-direction:column;align-items:center;gap:5px;}
+  #compete .carena canvas{background:#0d1420;border:1px solid #2b3a52;border-radius:4px;}
+  #compete .carena span{font-size:11px;letter-spacing:.02em;color:#8ba0bd;max-width:72px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #compete .carena.win span{color:#8fd6a0;}
   #hud .st-opp b{color:#8fd6a0;}
   #hud .st-opp i{max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #hud .st-opp.ahead b{color:#ff9d8a;}
@@ -351,6 +357,10 @@
     <div id="cResultV" class="cview hidden">
       <div id="cResultTitle"></div>
       <div id="cResultScore"></div>
+      <div id="cArenas" class="hidden">
+        <div class="carena"><canvas id="cMineC" width="66" height="114"></canvas><span id="cMineLbl">You</span></div>
+        <div class="carena"><canvas id="cOppC" width="66" height="114"></canvas><span id="cOppLbl">Rival</span></div>
+      </div>
       <div id="cResultWait" class="cnote hidden">Waiting for <span id="cResultOpp">your opponent</span> to finish&hellip;</div>
       <button id="cRematch" class="hidden">Rematch</button>
       <button id="cResultExit" class="ghost">Exit to menu</button>
@@ -1195,6 +1205,11 @@ const cRematch=document.getElementById('cRematch');
 const cResultTitle=document.getElementById('cResultTitle');
 const cResultScore=document.getElementById('cResultScore');
 const cResultWait=document.getElementById('cResultWait');
+const cArenas=document.getElementById('cArenas');
+const cMineC=document.getElementById('cMineC');
+const cOppC=document.getElementById('cOppC');
+const cMineLbl=document.getElementById('cMineLbl');
+const cOppLbl=document.getElementById('cOppLbl');
 const hudOpp=document.getElementById('hudOpp');
 const hOpp=document.getElementById('hOpp');
 const hOppName=document.getElementById('hOppName');
@@ -1254,6 +1269,27 @@ function drawQR(text){
       g.fillRect(Math.round((c+pad)*px),Math.round((r+pad)*px),Math.ceil(px),Math.ceil(px));
     cQR.style.display='';
   }catch(e){cQR.style.display='none';}                   // QR is a nicety; the code + link still work without it
+}
+// ---- opponent arena view: pack the board as "COLS:ROWS:rowInt.rowInt..." (~90 chars),
+//      synced with the score; the other player renders it read-only on the result screen. ----
+function encGrid(g){
+  g=g||grid; if(!g||!g.length)return '';
+  const rws=g.map(row=>{let n=0;for(let c=0;c<COLS;c++)if(row&&row[c])n|=1<<c;return n;});
+  return COLS+':'+rws.length+':'+rws.join('.');
+}
+function drawMini(cv,str){
+  const g=cv.getContext('2d');
+  g.clearRect(0,0,cv.width,cv.height);
+  g.fillStyle='#0d1420';g.fillRect(0,0,cv.width,cv.height);
+  const p=String(str||'').split(':');
+  if(p.length<3)return;
+  const cols=+p[0]||COLS, rws=p[2].split('.').map(Number), nr=rws.length||1;
+  const cw=cv.width/cols, ch=cv.height/nr;
+  for(let r=0;r<nr;r++)for(let c=0;c<cols;c++){
+    if(!(rws[r]&(1<<c)))continue;
+    g.fillStyle=`hsl(${(r*9+c*4+205)%360} 58% 55%)`;
+    g.fillRect(c*cw+0.5,r*ch+0.5,cw-1,ch-1);
+  }
 }
 const showCView=name=>{for(const k in cViews)cViews[k].classList.toggle('hidden',k!==name);};
 function openCompete(view){compete.classList.remove('hidden');showCView(view||'choice');}
@@ -1334,6 +1370,8 @@ function applyRoom(r){
   vs.oppScore=+r[opp+'_score']||0;
   vs.oppDone=!!r[opp+'_done'];
   vs.oppSeen=r[opp+'_seen']?Date.parse(r[opp+'_seen']):0;
+  vs.gridSync=('host_grid' in r);                        // false until breakin-rooms-grid.sql is run — then arena view turns on
+  if(vs.gridSync)vs.oppGridStr=r[opp+'_grid']||null;
   if(vs.oppDone)vs.oppDropped=false;                     // finishing always beats a stale heartbeat
 
   if(r.phase==='lobby'){
@@ -1370,7 +1408,8 @@ function vsBeginCountdown(at,m){
 function startVersus(){
   versus=true;vs.counting=false;vs.resultShown=false;vs.oppDropped=false;vs.oppScore=0;vs.oppDone=false;vs.myFinal=0;
   vs._doneSaid=vs._dropSaid=vs._overtookSaid=vs._aheadAtFinish=false;   // reset match-callout latches (also for a rematch)
-  cResultTitle.classList.remove('win','lose','tie');
+  vs.myGridStr=null;vs.oppGridStr=null;
+  cResultTitle.classList.remove('win','lose','tie');cArenas.classList.add('hidden');
   setMult(vs.mult);
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');compete.classList.add('hidden');nameEntry.classList.add('hidden');
@@ -1378,7 +1417,12 @@ function startVersus(){
   fit();reset();kick();
   vsRenderBar();
   clearInterval(vs.push);
-  vs.push=setInterval(()=>{if(vs)roomPatch(vs.code,{[vs.role+'_score']:Math.round(placed*mult),[vs.role+'_seen']:srvISO(),[vs.role+'_done']:mode==='over'});},900);
+  vs.push=setInterval(()=>{
+    if(!vs)return;
+    const f={[vs.role+'_score']:Math.round(placed*mult),[vs.role+'_seen']:srvISO(),[vs.role+'_done']:mode==='over'};
+    if(vs.gridSync)f[vs.role+'_grid']=encGrid();          // only once the columns exist — a missing column would 400 the whole patch
+    roomPatch(vs.code,f);
+  },900);
 }
 function vsRenderBar(){
   if(!vs)return;
@@ -1409,7 +1453,9 @@ function vsRenderBar(){
 function vsEndGame(reason){
   clearInterval(vs.push);vs.push=null;
   const score=Math.round(placed*mult);vs.myFinal=score;
-  roomPatch(vs.code,{[vs.role+'_done']:true,[vs.role+'_score']:score,[vs.role+'_seen']:srvISO()});
+  const f={[vs.role+'_done']:true,[vs.role+'_score']:score,[vs.role+'_seen']:srvISO()};
+  if(vs.gridSync){vs.myGridStr=encGrid();f[vs.role+'_grid']=vs.myGridStr;}
+  roomPatch(vs.code,f);
   hud.classList.add('hidden');hudOpp.classList.add('hidden');showTpad(false);
   compete.classList.remove('hidden');showCView('result');
   cRematch.classList.add('hidden');
@@ -1423,10 +1469,24 @@ function vsRenderResult(){
   const settled=vs.oppDone||vs.oppDropped;
   cResultWait.classList.toggle('hidden',settled);
   cRematch.classList.toggle('hidden',!(vs.oppDone&&vs.role==='host'));   // only rematch someone who actually finished
+
+  const haveArenas=!!vs.gridSync&&!!(vs.myGridStr||vs.oppGridStr);   // only once breakin-rooms-grid.sql has been run
+  cArenas.classList.toggle('hidden',!haveArenas);
+  if(haveArenas){                                       // redraws every poll — the opponent's board fills live while you wait
+    drawMini(cMineC,vs.myGridStr);
+    drawMini(cOppC,vs.oppGridStr);
+    cMineLbl.textContent='You '+(vs.myFinal||0);
+    cOppLbl.textContent=(vs.oppName||'Rival')+(vs.oppDone?' '+vs.oppScore:vs.oppDropped?' left':' …');
+  }
+
   if(!settled)return;                        // still "Your score: N / waiting for X..."
   vs.resultShown=true;
   const me=vs.myFinal||0,op=vs.oppDone?vs.oppScore:0,who=vs.oppName||'Opponent';
   const win=(!vs.oppDone&&vs.oppDropped)||me>op, tie=vs.oppDone&&me===op;
+  if(haveArenas){
+    cMineC.parentElement.classList.toggle('win',win&&!tie);
+    cOppC.parentElement.classList.toggle('win',!win&&!tie);
+  }
   cResultTitle.textContent=(!vs.oppDone&&vs.oppDropped)?'You win — opponent left'
     :me>op?'You win':op>me?who+' wins':'Dead heat';
   cResultTitle.classList.remove('win','lose','tie');
@@ -1436,8 +1496,8 @@ function vsRenderResult(){
 function hostRematch(){
   if(!vs||vs.role!=='host')return;
   roomPatch(vs.code,{phase:'lobby',start_at:null,host_score:0,guest_score:0,host_done:false,guest_done:false,host_seen:srvISO()});
-  versus=false;vs.counting=false;vs.resultShown=false;
-  cRematch.classList.add('hidden');cResultWait.classList.add('hidden');
+  versus=false;vs.counting=false;vs.resultShown=false;vs.myGridStr=null;vs.oppGridStr=null;
+  cRematch.classList.add('hidden');cResultWait.classList.add('hidden');cArenas.classList.add('hidden');
   cInviteStatus.textContent='Waiting for someone to join...';
   showCView('invite');
 }
@@ -1446,7 +1506,7 @@ function vsAbort(){
   vsCleanup(true);
   if(wasVersus||!overlay.classList.contains('hidden')){
     compete.classList.remove('hidden');showCView('result');
-    cRematch.classList.add('hidden');cResultWait.classList.add('hidden');
+    cRematch.classList.add('hidden');cResultWait.classList.add('hidden');cArenas.classList.add('hidden');
     cResultTitle.classList.remove('win','lose','tie');
     cResultTitle.textContent='The other player left';
     cResultScore.textContent='';
