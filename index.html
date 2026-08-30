@@ -40,13 +40,14 @@
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
     padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
     overflow-y:auto;
-    background:radial-gradient(ellipse 85% 52% at 50% 44%,
-      rgba(9,12,18,.94) 0%, rgba(9,12,18,.92) 42%, rgba(9,12,18,.44) 100%);
-    -webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px);}
+    background:radial-gradient(ellipse 78% 56% at 50% 40%,
+      rgba(9,12,18,.8) 0%, rgba(9,12,18,.62) 46%, rgba(9,12,18,.12) 100%);
+    -webkit-backdrop-filter:blur(2.5px);backdrop-filter:blur(2.5px);}
   #overlay .badge{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:#5f86b8;margin-bottom:6px;}
   #overlay h1{font-size:clamp(36px,12vw,50px);margin:0 0 8px;font-weight:800;letter-spacing:.14em;
     color:#eaf2ff;text-shadow:0 0 32px rgba(95,176,255,.5),0 2px 0 rgba(0,0,0,.35);}
-  #overlay p{margin:4px 0;color:#93a1b5;font-size:14px;max-width:300px;line-height:1.5;}
+  #overlay p{margin:4px 0;color:#9fadc1;font-size:14px;max-width:300px;line-height:1.5;
+    text-shadow:0 1px 6px rgba(6,9,14,.9);}
   #overlay b{color:#e8edf4;}
   #startBtn{margin:0;padding:12px 54px;color:#05121f;border:0;border-radius:999px;cursor:pointer;
     display:flex;flex-direction:column;align-items:center;gap:2px;
@@ -1039,7 +1040,7 @@ function draw(){
   ctx.clearRect(0,0,W,H);
   if(!grid||!grid.length||!ball||!paddle)return;   // ponytail: arena not built yet — blank canvas beats a TypeError
 
-  ctx.strokeStyle=alive?'rgba(130,165,225,.15)':'rgba(120,150,200,.06)';ctx.lineWidth=1;
+  ctx.strokeStyle=alive?'rgba(140,175,235,.22)':'rgba(120,150,200,.06)';ctx.lineWidth=1;
   for(let c=1;c<COLS;c++){ctx.beginPath();ctx.moveTo(c*cell,0);ctx.lineTo(c*cell,H);ctx.stroke();}
   for(let r=1;r<rows;r++){ctx.beginPath();ctx.moveTo(0,r*cell);ctx.lineTo(W,r*cell);ctx.stroke();}
   for(let r=0;r<rows;r++)for(let c=0;c<COLS;c++){
