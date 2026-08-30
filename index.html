@@ -87,6 +87,10 @@
   #board .sc{font-weight:800;color:#e6edf6;white-space:nowrap;text-align:right;}
   #board .head.dt,#board .head.sc{text-align:right;}
   #board .empty{color:#6b788c;font-size:13px;padding:10px;text-align:center;}
+  #board .bmore{display:block;margin:8px auto 0;padding:6px 14px;font:inherit;font-size:11px;
+    letter-spacing:.14em;text-transform:uppercase;color:#8b98ac;background:#141d2b;
+    border:1px solid #283549;border-radius:999px;cursor:pointer;}
+  #board .bmore:active{background:#1b2636;}
   #chint{margin-top:18px;font-size:12px;color:#5f6d82;letter-spacing:.03em;}
   #chint b{color:#93a1b5;font-weight:700;}
   @media (pointer:coarse){#chint{display:none;}}
@@ -314,6 +318,8 @@ const loadName=()=>{try{return localStorage.getItem('breakin-name')||'';}catch(e
 
 let remoteBoard=null;        // array once the shared board loads this session; null = offline / not configured
 let pendingScore=null;
+let boardExpanded=false;     // leaderboard shows top 5 until the player taps "show all" (keeps the game-over screen short on phones)
+const BOARD_COLLAPSED=5;
 
 async function lbFetch(){
   if(!lbOn())return null;
@@ -362,9 +368,12 @@ function renderBoard(mine){
   let html='<div class="bt">Leaderboard'+tag+'</div>';
   if(!list.length){board.innerHTML=html+'<div class="empty">No scores yet &mdash; play to claim #1.</div>';return;}
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
+  const mineIdx=hl?list.findIndex(s=>s.name===hl.name&&s.score===hl.score):-1;
+  const showAll=boardExpanded||mineIdx>=BOARD_COLLAPSED;   // never hide the player's own fresh score
+  const shown=showAll?list:list.slice(0,BOARD_COLLAPSED);
   html+='<div class="grid"><span class="head rk">#</span><span class="head nm">name</span>'
     +'<span class="head dt">date</span><span class="head sc">score</span>';
-  html+=list.map((s,i)=>{
+  html+=shown.map((s,i)=>{
     const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
     if(me)hl.used=true;
     const rk=i<3?' r'+(i+1):'', mc=me?' me':'';
@@ -374,8 +383,15 @@ function renderBoard(mine){
       +`<span class="sc${mc}">${s.score}</span>`;
   }).join('');
   html+='</div>';
+  if(list.length>BOARD_COLLAPSED)
+    html+=`<button class="bmore">${showAll?'Show less':'Show all '+list.length}</button>`;
   board.innerHTML=html;
 }
+board.addEventListener('click',e=>{
+  if(!e.target.classList.contains('bmore'))return;
+  boardExpanded=!boardExpanded;
+  renderBoard();
+});
 
 function qualifies(score){
   if(score<=0)return false;
@@ -718,6 +734,7 @@ function endGame(reason){
   if(mode==='attract')return;             // loop() will quietly restart the demo next frame
   mode='over';
   const secs=Math.floor(elapsed), blk=placed, score=Math.round(blk*mult);
+  boardExpanded=false;                     // start the game-over board collapsed so the screen stays short
   badgeEl.textContent=reason||'Game over';
   titleEl.textContent='GAME OVER';
   msgEl.innerHTML=`<b>${blk}</b> blocks &times; <b>${mult}</b> = <b>${score}</b><br><span style="color:#7f8ca0;font-size:13px">${secs}s survived</span>`;
