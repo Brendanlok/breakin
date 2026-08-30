@@ -234,6 +234,7 @@
   #cQR{width:150px;height:150px;border-radius:10px;background:#f4f7fb;}
   #compete .cnote{font-size:11.5px;line-height:1.5;color:#6b7a90;background:rgba(120,150,200,.07);
     border-radius:9px;padding:9px 11px;}
+  #compete .cnote:empty{display:none;}
   #compete #cCodeIn{width:100%;box-sizing:border-box;padding:12px;font-size:20px;font-weight:800;
     letter-spacing:.18em;text-align:center;text-transform:uppercase;border-radius:9px;
     border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;font-family:inherit;}
@@ -254,6 +255,21 @@
   #compete .carena span{font-size:11px;letter-spacing:.02em;color:#8ba0bd;max-width:72px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #compete .carena.win span{color:#8fd6a0;}
+  #compete .cspeed{display:flex;flex-direction:column;align-items:center;gap:9px;width:100%;}
+  #compete .cspeed-lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7f8ca0;}
+  #compete .cspeed-lbl b{color:#ffd25f;letter-spacing:0;font-size:14px;}
+  #compete .cspeed-row{display:flex;align-items:center;gap:18px;}
+  #compete .cspeed-row b{font-size:24px;font-weight:800;color:#ffd25f;min-width:46px;
+    font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(255,210,95,.4);}
+  #compete button.cspd{width:40px;height:40px;padding:0;font-size:22px;line-height:1;border-radius:50%;
+    background:#1b2637;color:#e8edf4;flex:0 0 auto;}
+  #compete button.cspd:active{background:#26344a;}
+  #cRematchBar{width:100%;height:4px;border-radius:2px;background:#1b2637;overflow:hidden;}
+  #cRematchFill{height:100%;width:100%;background:linear-gradient(90deg,#84c4ff,#48a2f3);}
+  #cRematchBtns{display:flex;flex-direction:column;gap:8px;width:100%;}
+  #compete button.chosen{outline:2px solid #8fd6a0;outline-offset:1px;}
+  #compete #cRematchOpp{min-height:16px;color:#8fd6a0;}
+  #compete button[disabled]{opacity:.4;pointer-events:none;}
   #hud .st-opp b{color:#8fd6a0;}
   #hud .st-opp i{max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   #hud .st-opp.ahead b{color:#ff9d8a;}
@@ -1262,6 +1278,14 @@ const cMineC=document.getElementById('cMineC');
 const cOppC=document.getElementById('cOppC');
 const cMineLbl=document.getElementById('cMineLbl');
 const cOppLbl=document.getElementById('cOppLbl');
+const cInviteShare=document.getElementById('cInviteShare');
+const cSpeedHost=document.getElementById('cSpeedHost'), cSpdVal=document.getElementById('cSpdVal');
+const cSpdUp=document.getElementById('cSpdUp'), cSpdDown=document.getElementById('cSpdDown');
+const cSpeedGuest=document.getElementById('cSpeedGuest'), cSpdValG=document.getElementById('cSpdValG');
+const cReady=document.getElementById('cReady'), cJoinLead=document.getElementById('cJoinLead');
+const cRematchPanel=document.getElementById('cRematchPanel'), cRematchFill=document.getElementById('cRematchFill');
+const cRmSecs=document.getElementById('cRmSecs'), cRematchOpp=document.getElementById('cRematchOpp');
+const cRmAgain=document.getElementById('cRmAgain'), cRmSettings=document.getElementById('cRmSettings'), cRmEnd=document.getElementById('cRmEnd');
 const hudOpp=document.getElementById('hudOpp');
 const hOpp=document.getElementById('hOpp');
 const hOppName=document.getElementById('hOppName');
@@ -1349,11 +1373,11 @@ function myName(){const n=((cNameIn.value||'').trim()||loadName()||'Player').sli
 
 function vsCleanup(keepRoom){
   if(vs){
-    clearInterval(vs.poll);clearInterval(vs.push);clearInterval(vs.cdInt);
+    clearInterval(vs.poll);clearInterval(vs.push);clearInterval(vs.cdInt);clearInterval(vs._rmInt);
     if(vs.role==='host'&&!keepRoom)roomDelete(vs.code);
   }
   vs=null;versus=false;
-  hudOpp.classList.add('hidden');vsCd.classList.add('hidden');
+  hudOpp.classList.add('hidden');vsCd.classList.add('hidden');cRematchPanel.classList.add('hidden');
 }
 function closeCompete(){
   compete.classList.add('hidden');
@@ -1382,13 +1406,31 @@ async function startInvite(){
 }
 function hostStart(){
   if(!vs||vs.role!=='host')return;
-  vs._live=false;
+  if(vs.lobbySync&&!vs.guestReady)return;                     // wait until the guest has confirmed the speed
+  vs._live=false;stopRematchTimer();
   const at=srvNow()+4500;
-  roomPatch(vs.code,{phase:'countdown',start_at:srvISO(at),mult:mult});
+  const f={phase:'countdown',start_at:srvISO(at),mult:mult};
+  if(vs.lobbySync)Object.assign(f,{host_choice:null,guest_choice:null,rematch_at:null});
+  roomPatch(vs.code,f);
   vsBeginCountdown(at,mult);
 }
+function hostSetSpeed(d){
+  if(!vs||vs.role!=='host'||versus)return;
+  setMult(mult+d);                                            // clamps 1..4, updates local mult + the menu slider
+  vs.roomMult=mult;
+  roomPatch(vs.code,vs.lobbySync?{mult:mult,guest_ready:false}:{mult:mult});
+  renderHostLobby();
+}
+async function guestToggleReady(){
+  if(!vs||vs.role!=='guest'||!vs.lobbySync)return;
+  vs.guestReady=!vs.guestReady;
+  renderGuestLobby();
+  await roomPatch(vs.code,{guest_ready:vs.guestReady});
+}
 function resetJoinView(){
-  cCodeIn.disabled=false;cJoinGo.classList.remove('hidden');
+  cCodeIn.disabled=false;cCodeIn.classList.remove('hidden');cJoinGo.classList.remove('hidden');
+  cSpeedGuest.classList.add('hidden');cReady.classList.add('hidden');
+  cJoinLead.textContent='Enter the 6-character code from your friend.';
   cJoinErr.textContent='';cJoinErr.classList.remove('ok');cJoinStatus.textContent='';
 }
 async function guestJoin(){
@@ -1404,7 +1446,8 @@ async function guestJoin(){
   if(!ok){cJoinStatus.textContent='';cJoinGo.classList.remove('hidden');cJoinErr.textContent='Could not join - try again.';return;}
   cCodeIn.disabled=true;
   vs={code:code,role:'guest',name:myName()};
-  cJoinStatus.textContent='Joined '+(room.host_name||'the host')+"'s game. Waiting for them to start...";
+  vs.lobbySync=('guest_ready' in room);vs.roomMult=+room.mult||2;vs.hostName=room.host_name||null;vs.guestReady=false;
+  renderGuestLobby();
   vs.poll=setInterval(vsTick,1300);
 }
 
@@ -1419,29 +1462,74 @@ async function vsTick(){
 function applyRoom(r){
   const opp=vs.role==='host'?'guest':'host';
   vs.oppName=r[opp+'_name']||null;
+  vs.hostName=r.host_name||null;
   vs.oppScore=+r[opp+'_score']||0;
   vs.oppDone=!!r[opp+'_done'];
   vs.oppSeen=r[opp+'_seen']?Date.parse(r[opp+'_seen']):0;
   vs.gridSync=('host_grid' in r);                        // false until 04-rooms-grid.sql is run — then arena view turns on
   if(vs.gridSync)vs.oppGridStr=r[opp+'_grid']||null;
+  vs.lobbySync=('guest_ready' in r);                     // false until 05-rooms-lobby.sql is run — then the speed/rematch flow turns on
+  vs.roomMult=+r.mult||2;
+  if(vs.lobbySync){
+    vs.guestReady=!!r.guest_ready;
+    vs.myChoice=r[vs.role+'_choice']||null;
+    vs.oppChoice=r[opp+'_choice']||null;
+    vs.rematchAt=r.rematch_at?Date.parse(r.rematch_at):0;
+  }
   if(vs.oppDone)vs.oppDropped=false;                     // finishing always beats a stale heartbeat
 
+  if(r.phase==='ended'){vsEndMatch();return;}
+
   if(r.phase==='lobby'){
-    if(vs.role==='host'){
-      if(vs.oppName){cInviteStatus.textContent=vs.oppName+' is in - start when you are ready.';cStart.classList.remove('hidden');}
-      else{cInviteStatus.textContent='Waiting for someone to join...';cStart.classList.add('hidden');}
-    }else if(!cViews.result.classList.contains('hidden')||!cViews.join.classList.contains('hidden')){
-      showCView('join');resetJoinView();cCodeIn.disabled=true;cJoinGo.classList.add('hidden');
-      cJoinStatus.textContent='Waiting for '+(r.host_name||'the host')+' to start...';
-    }
+    versus=false;
+    if(vs.role==='host')renderHostLobby();
+    else if(!cViews.result.classList.contains('hidden')||!cViews.join.classList.contains('hidden'))renderGuestLobby();
   }else if(r.phase==='countdown'&&!vs.counting&&mode!=='play'){
+    stopRematchTimer();
     vsBeginCountdown(Date.parse(r.start_at),+r.mult||2);
   }
 
-  if(versus){
+  if(versus||r.phase==='rematch'){
     if(!vs.oppDone&&vs.oppSeen&&srvNow()-vs.oppSeen>15000)vs.oppDropped=true;
     if(mode==='over')vsRenderResult();      // keep the result view live until the opponent's outcome settles
-    else vsRenderBar();
+    else if(versus)vsRenderBar();
+  }
+  if(vs.role==='host')vsResolveRematch();
+}
+function renderHostLobby(){
+  showCView('invite');cRematchPanel.classList.add('hidden');
+  const connected=!!vs.oppName;
+  cInviteShare.classList.toggle('hidden',connected);          // hide code/QR once someone's in
+  cSpeedHost.classList.toggle('hidden',!vs.lobbySync);
+  cSpdVal.textContent='×'+(vs.lobbySync?vs.roomMult:mult);
+  cSpdUp.disabled=vs.roomMult>=4;cSpdDown.disabled=vs.roomMult<=1;
+  if(!connected){
+    cInviteStatus.textContent='Waiting for someone to join…';
+    cInviteNote.textContent='They join by code or by scanning this. Keep this screen open.';
+    cStart.classList.add('hidden');
+  }else{
+    cInviteNote.textContent='';
+    const ready=!vs.lobbySync||vs.guestReady;
+    cInviteStatus.textContent=ready?vs.oppName+' is ready — start when you are.'
+      :vs.oppName+' is here — waiting for them to confirm the speed.';
+    cStart.classList.remove('hidden');cStart.disabled=!ready;
+  }
+}
+function renderGuestLobby(){
+  showCView('join');cRematchPanel.classList.add('hidden');
+  cCodeIn.classList.add('hidden');cJoinGo.classList.add('hidden');cJoinErr.textContent='';
+  cSpeedGuest.classList.toggle('hidden',!vs.lobbySync);
+  cReady.classList.toggle('hidden',!vs.lobbySync);
+  cSpdValG.textContent='×'+vs.roomMult;
+  const host=vs.hostName||'the host';
+  if(vs.lobbySync){
+    cReady.textContent=vs.guestReady?'Ready ✓ — tap to change':'I’m ready';
+    cReady.classList.toggle('chosen',vs.guestReady);
+    cJoinLead.textContent=vs.guestReady?'Waiting for '+host+' to start…':'Check the ball speed, then ready up.';
+    cJoinStatus.textContent='';
+  }else{
+    cJoinLead.textContent='';
+    cJoinStatus.textContent='Waiting for '+host+' to start…';
   }
 }
 
@@ -1460,8 +1548,8 @@ function vsBeginCountdown(at,m){
 function startVersus(){
   versus=true;vs.counting=false;vs.resultShown=false;vs.oppDropped=false;vs.oppScore=0;vs.oppDone=false;vs.myFinal=0;
   vs._doneSaid=vs._dropSaid=vs._overtookSaid=vs._aheadAtFinish=false;   // reset match-callout latches (also for a rematch)
-  vs.myGridStr=null;vs.oppGridStr=null;
-  cResultTitle.classList.remove('win','lose','tie');cArenas.classList.add('hidden');
+  vs.myGridStr=null;vs.oppGridStr=null;vs.myChoice=vs.oppChoice=null;vs.rematchAt=0;stopRematchTimer();
+  cResultTitle.classList.remove('win','lose','tie');cArenas.classList.add('hidden');cRematchPanel.classList.add('hidden');
   setMult(vs.mult);
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');compete.classList.add('hidden');nameEntry.classList.add('hidden');
@@ -1520,7 +1608,7 @@ function vsEndGame(reason){
 function vsRenderResult(){
   const settled=vs.oppDone||vs.oppDropped;
   cResultWait.classList.toggle('hidden',settled);
-  cRematch.classList.toggle('hidden',!(vs.oppDone&&vs.role==='host'));   // only rematch someone who actually finished
+  cRematch.classList.toggle('hidden',vs.lobbySync||!(vs.oppDone&&vs.role==='host'));   // legacy button only without 05
 
   const haveArenas=!!vs.gridSync&&!!(vs.myGridStr||vs.oppGridStr);   // only once 04-rooms-grid.sql has been run
   cArenas.classList.toggle('hidden',!haveArenas);
@@ -1531,19 +1619,91 @@ function vsRenderResult(){
     cOppLbl.textContent=(vs.oppName||'Rival')+(vs.oppDone?' '+vs.oppScore:vs.oppDropped?' left':' …');
   }
 
-  if(!settled)return;                        // still "Your score: N / waiting for X..."
-  vs.resultShown=true;
-  const me=vs.myFinal||0,op=vs.oppDone?vs.oppScore:0,who=vs.oppName||'Opponent';
-  const win=(!vs.oppDone&&vs.oppDropped)||me>op, tie=vs.oppDone&&me===op;
-  if(haveArenas){
-    cMineC.parentElement.classList.toggle('win',win&&!tie);
-    cOppC.parentElement.classList.toggle('win',!win&&!tie);
+  if(!settled&&!vs.lobbySync)return;         // legacy: wait for the opponent before showing the verdict
+  if(settled){
+    vs.resultShown=true;
+    const me=vs.myFinal||0,op=vs.oppDone?vs.oppScore:0,who=vs.oppName||'Opponent';
+    const win=(!vs.oppDone&&vs.oppDropped)||me>op, tie=vs.oppDone&&me===op;
+    if(haveArenas){
+      cMineC.parentElement.classList.toggle('win',win&&!tie);
+      cOppC.parentElement.classList.toggle('win',!win&&!tie);
+    }
+    cResultTitle.textContent=(!vs.oppDone&&vs.oppDropped)?'You win — opponent left'
+      :me>op?'You win':op>me?who+' wins':'Dead heat';
+    cResultTitle.classList.remove('win','lose','tie');
+    cResultTitle.classList.add(tie?'tie':win?'win':'lose');
+    cResultScore.textContent='You '+me+'   vs   '+who+' '+op;
   }
-  cResultTitle.textContent=(!vs.oppDone&&vs.oppDropped)?'You win — opponent left'
-    :me>op?'You win':op>me?who+' wins':'Dead heat';
-  cResultTitle.classList.remove('win','lose','tie');
-  cResultTitle.classList.add(tie?'tie':win?'win':'lose');
-  cResultScore.textContent='You '+me+'   vs   '+who+' '+op;
+
+  if(vs.lobbySync){                          // 05 flow: 30s vote — play again / change speed / end
+    if(vs.role==='host'&&!vs.rematchAt&&settled){
+      vs.rematchAt=srvNow()+30000;
+      roomPatch(vs.code,{phase:'rematch',rematch_at:srvISO(vs.rematchAt),host_choice:null,guest_choice:null});
+    }
+    if(vs.rematchAt){startRematchTimer();renderRematchPanel();}
+  }
+}
+function renderRematchPanel(){
+  cRematchPanel.classList.remove('hidden');cRematch.classList.add('hidden');cResultWait.classList.add('hidden');
+  cRmAgain.classList.toggle('chosen',vs.myChoice==='again');
+  cRmSettings.classList.toggle('chosen',vs.myChoice==='settings');
+  cRmEnd.classList.toggle('chosen',vs.myChoice==='end');
+  const who=vs.oppName||'Opponent';
+  cRematchOpp.textContent=vs.oppDropped?who+' left'
+    :vs.oppChoice==='again'?who+' wants to play again'
+    :vs.oppChoice==='settings'?who+' wants to change the speed'
+    :vs.oppChoice==='end'?who+' is ending the match'
+    :vs.myChoice?'Waiting for '+who+'…':'';
+}
+function startRematchTimer(){
+  if(!vs||vs._rmInt)return;
+  const upd=()=>{
+    if(!vs){return;}
+    const left=vs.rematchAt?vs.rematchAt-srvNow():30000;
+    cRmSecs.textContent=Math.max(0,Math.ceil(left/1000));
+    cRematchFill.style.width=Math.max(0,Math.min(100,left/30000*100))+'%';
+    if(left<=0&&vs.role==='host'){stopRematchTimer();vsEndMatch();}
+  };
+  upd();vs._rmInt=setInterval(upd,250);
+}
+function stopRematchTimer(){if(vs&&vs._rmInt){clearInterval(vs._rmInt);vs._rmInt=null;}}
+async function vsChoose(c){
+  if(!vs||!vs.lobbySync||mode!=='over')return;
+  vs.myChoice=c;renderRematchPanel();
+  await roomPatch(vs.code,{[vs.role+'_choice']:c});
+  if(vs.role==='host')vsResolveRematch();
+  else if(c==='end')vsEndMatch();
+}
+function vsResolveRematch(){
+  if(!vs||vs.role!=='host'||!vs.lobbySync||mode!=='over'||!vs.rematchAt)return;
+  const mc=vs.myChoice,oc=vs.oppChoice;
+  if(mc==='end'||oc==='end'||vs.oppDropped){vsEndMatch();return;}
+  if(mc&&oc)vsDoRematch(!(mc==='again'&&oc==='again'));   // both 'again' -> straight rematch; otherwise -> settings
+}
+function vsDoRematch(toSettings){
+  stopRematchTimer();
+  versus=false;vs.resultShown=false;vs.myChoice=vs.oppChoice=null;vs.rematchAt=0;vs.guestReady=false;
+  vs.myGridStr=null;vs.oppGridStr=null;
+  cRematchPanel.classList.add('hidden');cArenas.classList.add('hidden');
+  const base={host_score:0,guest_score:0,host_done:false,guest_done:false,
+    host_choice:null,guest_choice:null,rematch_at:null,guest_ready:false,host_seen:srvISO()};
+  if(vs.gridSync)Object.assign(base,{host_grid:null,guest_grid:null});
+  if(toSettings){
+    roomPatch(vs.code,{...base,phase:'lobby',start_at:null});
+    renderHostLobby();
+  }else{
+    const at=srvNow()+4500;vs._live=false;
+    roomPatch(vs.code,{...base,phase:'countdown',start_at:srvISO(at)});
+    vsBeginCountdown(at,vs.roomMult);
+  }
+}
+function vsEndMatch(){
+  if(!vs)return;
+  stopRematchTimer();
+  if(vs.role==='host'&&vs.lobbySync)roomPatch(vs.code,{phase:'ended'});
+  vsCleanup(true);                            // leave the room for the 3h sweep; both sides just detach
+  compete.classList.add('hidden');
+  if(overlay.classList.contains('hidden'))startAttract();
 }
 function hostRematch(){
   if(!vs||vs.role!=='host')return;
@@ -1570,6 +1730,12 @@ document.getElementById('cInvite').addEventListener('click',startInvite);
 document.getElementById('cJoin').addEventListener('click',()=>{resetJoinView();cCodeIn.value='';showCView('join');setTimeout(()=>cCodeIn.focus(),30);});
 cStart.addEventListener('click',hostStart);
 cRematch.addEventListener('click',hostRematch);
+cSpdUp.addEventListener('click',()=>hostSetSpeed(0.5));
+cSpdDown.addEventListener('click',()=>hostSetSpeed(-0.5));
+cReady.addEventListener('click',guestToggleReady);
+cRmAgain.addEventListener('click',()=>vsChoose('again'));
+cRmSettings.addEventListener('click',()=>vsChoose('settings'));
+cRmEnd.addEventListener('click',()=>vsChoose('end'));
 document.getElementById('cResultExit').addEventListener('click',closeCompete);
 document.getElementById('cCopy').addEventListener('click',async ev=>{
   const b=ev.currentTarget;
