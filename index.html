@@ -48,15 +48,15 @@
     color:#eaf2ff;text-shadow:0 0 32px rgba(95,176,255,.5),0 2px 0 rgba(0,0,0,.35);}
   #overlay p{margin:4px 0;color:#93a1b5;font-size:14px;max-width:300px;line-height:1.5;}
   #overlay b{color:#e8edf4;}
-  #startBtn{margin:0;padding:15px 54px;font-size:18px;font-weight:800;letter-spacing:.1em;
-    text-transform:uppercase;color:#05121f;border:0;border-radius:999px;cursor:pointer;
+  #startBtn{margin:0;padding:12px 54px;color:#05121f;border:0;border-radius:999px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
     background:linear-gradient(180deg,#84c4ff,#48a2f3);
     box-shadow:0 10px 34px rgba(72,162,243,.42);
     animation:breathe 2.4s ease-in-out infinite;}
+  #startBtn .lbl{font-size:18px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;line-height:1.1;}
+  #startBtn .sub{font-size:10px;font-weight:700;letter-spacing:.04em;opacity:.6;}
   #startBtn:hover{filter:brightness(1.08);}
   #startBtn:active{transform:scale(.96);}
-  #hint{margin:2px 0 0;font-size:12px;color:#5f6d82;letter-spacing:.04em;}
-  #hint b{color:#93a1b5;font-weight:700;}
   @keyframes breathe{
     0%,100%{transform:scale(1);box-shadow:0 10px 34px rgba(72,162,243,.34);}
     50%{transform:scale(1.045);box-shadow:0 14px 46px rgba(72,162,243,.62);}}
@@ -324,10 +324,9 @@
     </div>
   </div>
   <div id="playRow">
-    <button id="startBtn">Play solo</button>
+    <button id="startBtn"><span class="lbl">Play solo</span><span class="sub">press Space</span></button>
     <button id="competeBtn">Play competitive</button>
   </div>
-  <div id="hint">press <b>Space</b> for solo</div>
   <div id="board"></div>
   <div id="chint">move with <b>&larr; &rarr;</b> or <b>A D</b></div>
   <button id="fbLink">Send feedback</button>
@@ -812,7 +811,7 @@ function endGame(reason){
   msgEl.innerHTML=`<b>${blk}</b> blocks &times; <b>${mult}</b> = <b>${score}</b><br><span style="color:#7f8ca0;font-size:13px">${secs}s survived</span>`
     +(newBest?`<br><span style="color:#ffd25f;font-size:13px;font-weight:700">&#9733; New personal best!</span>`
       :bestShown>0?`<br><span style="color:#7f8ca0;font-size:13px">Best ${bestShown}</span>`:'');
-  startBtn.textContent='Play again';
+  startBtn.querySelector('.lbl').textContent='Play again';
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');showTpad(false);
   bumpGames();
@@ -839,7 +838,7 @@ function startAttract(){                   // demo playing behind the menu
   badgeEl.textContent='Breakout, in reverse';
   titleEl.textContent='BREAKIN';
   msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.';
-  startBtn.textContent='Play solo';
+  startBtn.querySelector('.lbl').textContent='Play solo';
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');showTpad(false);
   fit();reset();kick();
