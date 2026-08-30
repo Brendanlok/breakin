@@ -124,6 +124,7 @@
   #multSlider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#ffd25f;border:0;
     box-shadow:0 0 16px rgba(255,210,95,.5);cursor:pointer;}
   #speed .ends{display:flex;justify-content:space-between;color:#5f6d82;font-size:11px;margin-top:5px;}
+  #speed .hint{color:#6b7a90;font-size:10.5px;line-height:1.4;margin-top:8px;text-align:center;}
   #admin{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
     background:rgba(4,7,11,.82);padding:20px;}
   #admin .apanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
@@ -343,6 +344,7 @@
     <span class="slbl">Ball speed &nbsp;&middot;&nbsp; score <b id="multVal">&times;2</b></span>
     <input type="range" id="multSlider" min="1" max="4" step="0.5" value="2">
     <div class="ends"><span>slower</span><span>faster</span></div>
+    <div class="hint">Faster ball &rarr; more points per block, less time to react.</div>
   </div>
   <div id="tctl" class="hidden">
     <span class="slbl">Move the paddle</span>
@@ -870,7 +872,8 @@ function startAttract(){                   // demo playing behind the menu
   nameEntry.classList.add('hidden');
   badgeEl.textContent='Breakout, in reverse';
   titleEl.textContent='BREAKIN';
-  msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.';
+  msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.'
+    +(loadBest()>0?`<br><span style="color:#7f8ca0;font-size:13px">Your best <b style="color:#ffd25f">${loadBest()}</b></span>`:'');
   startBtn.querySelector('.lbl').textContent='Play solo';
   homeLink.classList.add('hidden');
   overlay.classList.remove('hidden');
