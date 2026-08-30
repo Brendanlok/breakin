@@ -1,4 +1,13 @@
--- Breakin shared leaderboard — run once in the Supabase SQL editor.
+-- ============================================================================
+--  Breakin DB migrations — run once each, in filename order, in the Supabase
+--  SQL editor (Partfinder project, ref ekcnpuwclkjnqnntlvot):
+--    01-leaderboard.sql   →  breakin_scores table (this file)
+--    02-backend-v2.sql    →  score guard + feedback/crash inboxes + admin RPC
+--    03-rooms.sql         →  breakin_rooms table (competitive mode)
+--    04-rooms-grid.sql    →  opponent-arena sync columns on breakin_rooms
+--  All are idempotent (IF NOT EXISTS / OR REPLACE) — safe to re-run.
+-- ============================================================================
+-- [01/04] Breakin shared leaderboard.
 -- Public (anon) can READ the board and INSERT one score. No update, no delete.
 -- Protection is row-level security + CHECK constraints, so the anon key is safe to ship.
 

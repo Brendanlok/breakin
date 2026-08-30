@@ -1,8 +1,7 @@
--- Breakin — competitive match rooms.
+-- [03/04] Breakin — competitive match rooms. Independent of 01/02; needed for competitive mode.
 -- Model: two players each play their own board, scores sync live, highest total wins.
 -- Transport is plain REST + ~1.3s client polling (no realtime/websocket), so this one
--- table is all the backend competitive mode needs. Run this once in the Supabase SQL editor
--- (Partfinder project, ref ekcnpuwclkjnqnntlvot). Until it exists the client fails soft:
+-- table is all the backend competitive mode needs. Until it exists the client fails soft:
 -- the invite code + QR still work as a share, live play just says it's not switched on yet.
 
 create table if not exists public.breakin_rooms (

@@ -12,10 +12,21 @@ long as you can.
 - `index.html` — the whole game. Vanilla JS + canvas, no dependencies, no build step.
   A bot plays a live demo behind the start menu; hit Play to take over.
 - `manifest.json`, `icon-192.png`, `icon-512.png` — PWA / add-to-home-screen.
-- `leaderboard.sql` — the original `breakin_scores` table + RLS.
-- `backend-v2.sql` — score plausibility guard, feedback + crash-report inboxes,
-  and the admin RPC. **Set your own passphrase in section 4 before running; never
-  commit the real value.**
+
+### Database migrations
+
+Run once each in the Supabase SQL editor (Partfinder project), **in number order**.
+All are idempotent — safe to re-run.
+
+| # | File | Adds |
+|---|------|------|
+| 01 | `01-leaderboard.sql` | `breakin_scores` table + RLS |
+| 02 | `02-backend-v2.sql` | score plausibility guard, feedback + crash-report inboxes, admin RPC. **Set your own passphrase in section 4 before running; never commit the real value.** |
+| 03 | `03-rooms.sql` | `breakin_rooms` table — competitive mode |
+| 04 | `04-rooms-grid.sql` | `host_grid` / `guest_grid` columns — the opponent-arena view |
+
+01 → 02 are the leaderboard chain (02 needs 01). 03 → 04 are competitive (04 needs 03).
+Competitive works score-only without 04; the arena view stays hidden until it's run.
 
 ## Leaderboard
 

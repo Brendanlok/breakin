@@ -1,4 +1,4 @@
--- Breakin backend v2 — run once in the Supabase SQL editor (Partfinder project).
+-- [02/04] Breakin backend v2 — run after 01-leaderboard.sql (needs breakin_scores).
 -- Adds: score plausibility guard, a feedback inbox, a crash-report inbox,
 -- and extends the admin RPC to read them.
 --

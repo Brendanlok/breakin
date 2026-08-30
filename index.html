@@ -1187,7 +1187,7 @@ startBtn.addEventListener('click',startPlay);
 
 // ---- competitive: separate boards, live scoreboard, highest total wins.
 //      Sync = a Supabase table (breakin_rooms) + ~1.3s polling. No websocket, no new deps.
-//      Needs breakin-rooms.sql run once; until then create/join fail soft and the code + QR still share. ----
+//      Needs 03-rooms.sql run once; until then create/join fail soft and the code + QR still share. ----
 const compete=document.getElementById('compete');
 const cViews={choice:document.getElementById('cChoice'),invite:document.getElementById('cInviteV'),
   join:document.getElementById('cJoinV'),result:document.getElementById('cResultV')};
@@ -1325,7 +1325,7 @@ async function startInvite(){
     vs.poll=setInterval(vsTick,1300);
   }catch(e){
     cInviteStatus.textContent='';
-    cInviteNote.textContent='Could not reach the match server. The code and QR still work to share, but live play needs the server set up (breakin-rooms.sql).';
+    cInviteNote.textContent='Could not reach the match server. The code and QR still work to share, but live play needs the server set up (03-rooms.sql).';
   }
 }
 function hostStart(){
@@ -1370,7 +1370,7 @@ function applyRoom(r){
   vs.oppScore=+r[opp+'_score']||0;
   vs.oppDone=!!r[opp+'_done'];
   vs.oppSeen=r[opp+'_seen']?Date.parse(r[opp+'_seen']):0;
-  vs.gridSync=('host_grid' in r);                        // false until breakin-rooms-grid.sql is run — then arena view turns on
+  vs.gridSync=('host_grid' in r);                        // false until 04-rooms-grid.sql is run — then arena view turns on
   if(vs.gridSync)vs.oppGridStr=r[opp+'_grid']||null;
   if(vs.oppDone)vs.oppDropped=false;                     // finishing always beats a stale heartbeat
 
@@ -1470,7 +1470,7 @@ function vsRenderResult(){
   cResultWait.classList.toggle('hidden',settled);
   cRematch.classList.toggle('hidden',!(vs.oppDone&&vs.role==='host'));   // only rematch someone who actually finished
 
-  const haveArenas=!!vs.gridSync&&!!(vs.myGridStr||vs.oppGridStr);   // only once breakin-rooms-grid.sql has been run
+  const haveArenas=!!vs.gridSync&&!!(vs.myGridStr||vs.oppGridStr);   // only once 04-rooms-grid.sql has been run
   cArenas.classList.toggle('hidden',!haveArenas);
   if(haveArenas){                                       // redraws every poll — the opponent's board fills live while you wait
     drawMini(cMineC,vs.myGridStr);
