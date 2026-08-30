@@ -954,6 +954,7 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));
 
 function step(dt){
+  if(!grid||!grid.length||!ball)return;   // ponytail: arena not built yet — skip this frame rather than crash
   elapsed=(performance.now()-startTime)/1000;
   const f=dt/16.667;
 
@@ -1034,6 +1035,8 @@ function step(dt){
 function draw(){
   const alive=mode==='attract';            // hold the demo arena brighter behind the menu so it reads as a live game
   ctx.clearRect(0,0,W,H);
+  if(!grid||!grid.length||!ball||!paddle)return;   // ponytail: arena not built yet — blank canvas beats a TypeError
+
   ctx.strokeStyle=alive?'rgba(130,165,225,.15)':'rgba(120,150,200,.06)';ctx.lineWidth=1;
   for(let c=1;c<COLS;c++){ctx.beginPath();ctx.moveTo(c*cell,0);ctx.lineTo(c*cell,H);ctx.stroke();}
   for(let r=1;r<rows;r++){ctx.beginPath();ctx.moveTo(0,r*cell);ctx.lineTo(W,r*cell);ctx.stroke();}
