@@ -920,8 +920,18 @@ function draw(){
   ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
 }
 
-function loop(t){
+function loop(t){                          // guarded wrapper: one throw must not silently freeze the canvas
   if(!rafOn)return;
+  try{ frame(t); }
+  catch(err){
+    reportError('loop crash: '+(err&&err.message||err), err&&err.stack);
+    try{
+      if(mode==='attract'){ reset(); requestAnimationFrame(loop); }
+      else endGame('Something broke');   // player at least lands back on the menu
+    }catch(_){ rafOn=false; }
+  }
+}
+function frame(t){
   let dt=t-lastT;lastT=t;if(dt>60)dt=60;
   if(mode==='over'){rafOn=false;return;}    // freeze on the final frame; startPlay() restarts the loop
   if(over&&mode==='attract')reset();        // a demo round ended — start a fresh arena
