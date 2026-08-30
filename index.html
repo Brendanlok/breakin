@@ -174,8 +174,9 @@
   #gate button{padding:10px 16px;font-size:14px;font-weight:700;border:0;border-radius:9px;cursor:pointer;}
   #gOk{background:#5fb0ff;color:#05121f;}
   #gCancel{background:#1b2637;color:#cdd6e4;}
-  #linkbtn,#fbLink{background:none;border:0;color:#6b7a90;font-size:12px;letter-spacing:.03em;
+  #linkbtn,#fbLink,#homeLink{background:none;border:0;color:#6b7a90;font-size:12px;letter-spacing:.03em;
     cursor:pointer;padding:4px;margin-top:12px;text-decoration:underline;}
+  #homeLink{margin-top:14px;font-weight:700;color:#93a1b5;}
   #fbLink.nudge{color:#8fd6a0;text-decoration:none;font-weight:700;}
   #fb{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
     background:rgba(4,7,11,.82);padding:20px;}
@@ -353,6 +354,7 @@
     <button id="startBtn"><span class="lbl">Play solo</span><span class="sub">press Space</span></button>
     <button id="competeBtn">Play competitive</button>
   </div>
+  <button id="homeLink" class="hidden">&larr; Back to start</button>
   <div id="board"></div>
   <div id="chint">move with <b>&larr; &rarr;</b> or <b>A D</b></div>
   <button id="fbLink">Send feedback</button>
@@ -636,6 +638,8 @@ document.getElementById('btnErrors').addEventListener('click',doErrors);
 // ---- player feedback ----
 const fb=document.getElementById('fb');
 const fbLink=document.getElementById('fbLink');
+const homeLink=document.getElementById('homeLink');
+homeLink.addEventListener('click',()=>startAttract());   // game over -> back to the start screen
 const fbName=document.getElementById('fbName');
 const fbMsg=document.getElementById('fbMsg');
 const fbOut=document.getElementById('fbOut');
@@ -839,6 +843,7 @@ function endGame(reason){
     +(newBest?`<br><span style="color:#ffd25f;font-size:13px;font-weight:700">&#9733; New personal best!</span>`
       :bestShown>0?`<br><span style="color:#7f8ca0;font-size:13px">Best ${bestShown}</span>`:'');
   startBtn.querySelector('.lbl').textContent='Play again';
+  homeLink.classList.remove('hidden');
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');showTpad(false);
   bumpGames();
@@ -866,6 +871,7 @@ function startAttract(){                   // demo playing behind the menu
   titleEl.textContent='BREAKIN';
   msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.';
   startBtn.querySelector('.lbl').textContent='Play solo';
+  homeLink.classList.add('hidden');
   overlay.classList.remove('hidden');
   hud.classList.add('hidden');showTpad(false);
   fit();reset();kick();
@@ -874,7 +880,7 @@ function startPlay(){
   if(pendingScore)commitPending();         // save an unsaved qualifying score before replaying (local write is sync)
   if(isTouch&&touchCtl==='tilt'&&!tiltOn)enableTilt();   // Play is a user gesture — ok to ask now
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
-  nameEntry.classList.add('hidden');
+  nameEntry.classList.add('hidden');homeLink.classList.add('hidden');
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');
   hud.classList.remove('hidden');showTpad(true);
   fit();reset();kick();
