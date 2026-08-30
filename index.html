@@ -78,10 +78,11 @@
   #board .grid{display:grid;grid-template-columns:1.9em minmax(0,1fr) auto auto;
     align-items:baseline;}
   #board .grid>span{padding:5px 6px;}
-  #board .grid>span:first-child{padding-left:2px;}
-  #board .grid>span:last-child{padding-right:2px;}
+  #board .grid>span:nth-child(4n+1){padding-left:2px;}   /* whole rank column, not just one cell */
+  #board .grid>span:nth-child(4n){padding-right:2px;}    /* whole score column — keeps the last row aligned */
   #board .grid>span.head{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
     color:#5f6d82;padding-bottom:7px;}
+  #board .grid>span.head.h-r{margin-right:-.14em;}       /* cancel the trailing letter-spacing so DATE/SCORE right-align with their column */
   #board .grid>span.rk,#board .grid>span.nm,#board .grid>span.h-l{text-align:left;}
   #board .grid>span.dt,#board .grid>span.sc,#board .grid>span.h-r{text-align:right;}
   #board .me{background:rgba(95,176,255,.16);}
@@ -716,7 +717,7 @@ function fit(){
   cell=Math.max(16,Math.floor(Math.min(vw/COLS,vh/rows)));   // shrink the cell to fit the shorter axis — never drop rows
   W=cell*COLS;
   H=rows*cell;
-  spawnMaxRow=rows-2;                 // blocks may form right down to the row above the paddle
+  spawnMaxRow=rows-1;                 // blocks form right down to the row the paddle rests against — no floating gap above it
   canvas.width=W;canvas.height=H;
   if(grid&&grid.length!==rows){       // viewport changed row count (e.g. phone rotate) — keep grid in sync so draw()/step() don't read past its end
     const g=newGrid();
@@ -786,7 +787,7 @@ function showTpad(on){tpad.classList.toggle('hidden',!(on&&isTouch&&touchCtl==='
 
 const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
 const filled=(r,c)=>r>=0&&r<rows&&c>=0&&c<COLS&&!!grid[r][c];
-const paddleY=()=>H-cell*1.2;
+const paddleY=()=>H-cell;      // paddle rests one cell off the floor, flush under the lowest block row
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 
 function ballInCell(r,c){
