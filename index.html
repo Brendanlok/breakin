@@ -20,7 +20,10 @@
   #wrap{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;
     padding-top:calc(82px + env(safe-area-inset-top,0px));}
   canvas{background:#0d1420;display:block;touch-action:none;
-    box-shadow:0 0 80px rgba(80,140,255,.18);border-radius:4px;}
+    box-shadow:0 0 80px rgba(80,140,255,.18);border-radius:4px;
+    animation:cfade .5s ease-out both;}
+  @keyframes cfade{from{opacity:0}to{opacity:1}}
+  @media (prefers-reduced-motion:reduce){canvas{animation:none;}}
   #hud{position:fixed;top:calc(9px + env(safe-area-inset-top,0px));left:0;right:0;display:flex;
     justify-content:center;gap:9px;padding:0 8px;flex-wrap:wrap;pointer-events:none;
     font-variant-numeric:tabular-nums;}
@@ -903,13 +906,14 @@ function step(dt){
 }
 
 function draw(){
+  const alive=mode==='attract';            // hold the demo arena brighter behind the menu so it reads as a live game
   ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(120,150,200,.06)';ctx.lineWidth=1;
+  ctx.strokeStyle=alive?'rgba(130,165,225,.15)':'rgba(120,150,200,.06)';ctx.lineWidth=1;
   for(let c=1;c<COLS;c++){ctx.beginPath();ctx.moveTo(c*cell,0);ctx.lineTo(c*cell,H);ctx.stroke();}
   for(let r=1;r<rows;r++){ctx.beginPath();ctx.moveTo(0,r*cell);ctx.lineTo(W,r*cell);ctx.stroke();}
   for(let r=0;r<rows;r++)for(let c=0;c<COLS;c++){
     if(!grid[r][c])continue;
-    ctx.fillStyle=`hsl(${(r*9+c*4+205)%360} 60% 55%)`;
+    ctx.fillStyle=`hsl(${(r*9+c*4+205)%360} ${alive?70:60}% ${alive?62:55}%)`;
     ctx.fillRect(c*cell+1,r*cell+1,cell-2,cell-2);
   }
   ctx.fillStyle='#dfe9f7';
@@ -917,7 +921,9 @@ function draw(){
   ctx.beginPath();ctx.moveTo(px+rr,py);
   ctx.arcTo(px+pw,py,px+pw,py+ph,rr);ctx.arcTo(px+pw,py+ph,px,py+ph,rr);
   ctx.arcTo(px,py+ph,px,py,rr);ctx.arcTo(px,py,px+pw,py,rr);ctx.closePath();ctx.fill();
-  ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fillStyle='#fff';
+  if(alive){ctx.shadowColor='rgba(130,185,255,.95)';ctx.shadowBlur=18;}
+  ctx.fill();ctx.shadowBlur=0;
 }
 
 function loop(t){                          // guarded wrapper: one throw must not silently freeze the canvas
