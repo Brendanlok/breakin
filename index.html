@@ -1373,7 +1373,7 @@ function myName(){const n=((cNameIn.value||'').trim()||loadName()||'Player').sli
 
 function vsCleanup(keepRoom){
   if(vs){
-    clearInterval(vs.poll);clearInterval(vs.push);clearInterval(vs.cdInt);clearInterval(vs._rmInt);
+    clearInterval(vs.poll);clearInterval(vs.push);clearInterval(vs.cdInt);clearInterval(vs._rmInt);clearTimeout(vs._spdT);
     if(vs.role==='host'&&!keepRoom)roomDelete(vs.code);
   }
   vs=null;versus=false;
@@ -1404,25 +1404,41 @@ async function startInvite(){
     cInviteNote.textContent='Could not reach the match server. The code and QR still work to share, but live play needs the server set up (03-rooms.sql).';
   }
 }
-function hostStart(){
+const VS_COUNTDOWN=5000;                 // both ready -> 5s until the balls launch
+function vsLaunch(){                     // host only: stamp a shared start time and run the countdown
   if(!vs||vs.role!=='host')return;
-  if(vs.lobbySync&&!vs.guestReady)return;                     // wait until the guest has confirmed the speed
-  vs._live=false;stopRematchTimer();
-  const at=srvNow()+4500;
-  const f={phase:'countdown',start_at:srvISO(at),mult:mult};
+  vs._live=false;vs.hostReady=false;stopRematchTimer();
+  const at=srvNow()+VS_COUNTDOWN;
+  const f={phase:'countdown',start_at:srvISO(at),mult:vs.roomMult||mult};
   if(vs.lobbySync)Object.assign(f,{host_choice:null,guest_choice:null,rematch_at:null});
   roomPatch(vs.code,f);
-  vsBeginCountdown(at,mult);
+  vsBeginCountdown(at,vs.roomMult||mult);
+}
+function hostStart(){                    // the host's own ready toggle (pre-05: a plain "start now")
+  if(!vs||vs.role!=='host')return;
+  if(!vs.lobbySync){vsLaunch();return;}
+  vs.hostReady=!vs.hostReady;
+  renderHostLobby();
+  maybeLaunch();
+}
+function maybeLaunch(){                  // both sides confirmed -> start on its own
+  if(vs&&vs.role==='host'&&vs.lobbySync&&vs.hostReady&&vs.guestReady&&vs.oppName&&!versus&&mode!=='play'&&!vs.counting)vsLaunch();
 }
 function hostSetSpeed(d){
   if(!vs||vs.role!=='host'||versus)return;
   setMult(mult+d);                                            // clamps 1..4, updates local mult + the menu slider
   vs.roomMult=mult;
-  roomPatch(vs.code,vs.lobbySync?{mult:mult,guest_ready:false}:{mult:mult});
+  if(vs.lobbySync){vs.guestReady=false;vs.hostReady=false;}    // speed changed — both confirm again
   renderHostLobby();
+  clearTimeout(vs._spdT);                                     // debounce: rapid taps must not race each other out of order
+  vs._spdT=setTimeout(()=>{
+    if(!vs)return;
+    vs._spdT=null;
+    roomPatch(vs.code,vs.lobbySync?{mult:vs.roomMult,guest_ready:false}:{mult:vs.roomMult});
+  },260);
 }
 async function guestToggleReady(){
-  if(!vs||vs.role!=='guest'||!vs.lobbySync)return;
+  if(!vs||vs.role!=='guest'||!vs.lobbySync||vs.counting)return;
   vs.guestReady=!vs.guestReady;
   renderGuestLobby();
   await roomPatch(vs.code,{guest_ready:vs.guestReady});
@@ -1455,9 +1471,10 @@ async function vsTick(){
   if(!vs)return;
   let room;
   try{room=await roomGet(vs.code);}catch(e){return;}
+  if(!vs)return;                                                // ended while the fetch was in flight
   if(!room){vsAbort();return;}
   applyRoom(room);
-  if(!versus)roomPatch(vs.code,{[vs.role+'_seen']:srvISO()});   // heartbeat while in the lobby / result screen
+  if(vs&&!versus)roomPatch(vs.code,{[vs.role+'_seen']:srvISO()});   // applyRoom may have ended the match and cleared vs
 }
 function applyRoom(r){
   const opp=vs.role==='host'?'guest':'host';
@@ -1469,12 +1486,13 @@ function applyRoom(r){
   vs.gridSync=('host_grid' in r);                        // false until 04-rooms-grid.sql is run — then arena view turns on
   if(vs.gridSync)vs.oppGridStr=r[opp+'_grid']||null;
   vs.lobbySync=('guest_ready' in r);                     // false until 05-rooms-lobby.sql is run — then the speed/rematch flow turns on
-  vs.roomMult=+r.mult||2;
+  if(!vs._spdT)vs.roomMult=+r.mult||2;                   // a debounced speed change of mine hasn't landed yet — don't echo the stale value back
   if(vs.lobbySync){
-    vs.guestReady=!!r.guest_ready;
+    if(!vs._spdT)vs.guestReady=!!r.guest_ready;
     vs.myChoice=r[vs.role+'_choice']||null;
     vs.oppChoice=r[opp+'_choice']||null;
-    vs.rematchAt=r.rematch_at?Date.parse(r.rematch_at):0;
+    if(r.rematch_at)vs.rematchAt=Date.parse(r.rematch_at);
+    else if(!vs._rmOpen)vs.rematchAt=0;   // don't let a poll that raced my own "open the vote" write undo it
   }
   if(vs.oppDone)vs.oppDropped=false;                     // finishing always beats a stale heartbeat
 
@@ -1482,7 +1500,7 @@ function applyRoom(r){
 
   if(r.phase==='lobby'){
     versus=false;
-    if(vs.role==='host')renderHostLobby();
+    if(vs.role==='host'){renderHostLobby();maybeLaunch();}   // guest just readied while I was ready -> go
     else if(!cViews.result.classList.contains('hidden')||!cViews.join.classList.contains('hidden'))renderGuestLobby();
   }else if(r.phase==='countdown'&&!vs.counting&&mode!=='play'){
     stopRematchTimer();
@@ -1506,13 +1524,19 @@ function renderHostLobby(){
   if(!connected){
     cInviteStatus.textContent='Waiting for someone to join…';
     cInviteNote.textContent='They join by code or by scanning this. Keep this screen open.';
-    cStart.classList.add('hidden');
+    cStart.classList.add('hidden');cStart.classList.remove('chosen');
   }else{
     cInviteNote.textContent='';
-    const ready=!vs.lobbySync||vs.guestReady;
-    cInviteStatus.textContent=ready?vs.oppName+' is ready — start when you are.'
-      :vs.oppName+' is here — waiting for them to confirm the speed.';
-    cStart.classList.remove('hidden');cStart.disabled=!ready;
+    cStart.classList.remove('hidden');cStart.disabled=false;
+    if(!vs.lobbySync){                                  // pre-05: host just starts when they like
+      cStart.textContent='Start match';cStart.classList.remove('chosen');
+      cInviteStatus.textContent=vs.oppName+' is in — start when you are ready.';
+    }else{
+      cStart.textContent=vs.hostReady?'Ready ✓ — tap to change':'I’m ready';
+      cStart.classList.toggle('chosen',!!vs.hostReady);
+      cInviteStatus.textContent=vs.guestReady?vs.oppName+' is ready'
+        :vs.oppName+' is here — waiting for them to confirm the speed.';
+    }
   }
 }
 function renderGuestLobby(){
@@ -1525,7 +1549,8 @@ function renderGuestLobby(){
   if(vs.lobbySync){
     cReady.textContent=vs.guestReady?'Ready ✓ — tap to change':'I’m ready';
     cReady.classList.toggle('chosen',vs.guestReady);
-    cJoinLead.textContent=vs.guestReady?'Waiting for '+host+' to start…':'Check the ball speed, then ready up.';
+    cJoinLead.textContent=vs.guestReady?'Waiting for '+host+' — the match starts as soon as they’re ready too.'
+                                       :'Check the ball speed, then ready up.';
     cJoinStatus.textContent='';
   }else{
     cJoinLead.textContent='';
@@ -1548,7 +1573,8 @@ function vsBeginCountdown(at,m){
 function startVersus(){
   versus=true;vs.counting=false;vs.resultShown=false;vs.oppDropped=false;vs.oppScore=0;vs.oppDone=false;vs.myFinal=0;
   vs._doneSaid=vs._dropSaid=vs._overtookSaid=vs._aheadAtFinish=false;   // reset match-callout latches (also for a rematch)
-  vs.myGridStr=null;vs.oppGridStr=null;vs.myChoice=vs.oppChoice=null;vs.rematchAt=0;stopRematchTimer();
+  vs.myGridStr=null;vs.oppGridStr=null;vs.myChoice=vs.oppChoice=null;vs.rematchAt=0;vs._rmOpen=false;
+  vs.hostReady=false;vs.guestReady=false;stopRematchTimer();
   cResultTitle.classList.remove('win','lose','tie');cArenas.classList.add('hidden');cRematchPanel.classList.add('hidden');
   setMult(vs.mult);
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
@@ -1636,8 +1662,8 @@ function vsRenderResult(){
   }
 
   if(vs.lobbySync){                          // 05 flow: 30s vote — play again / change speed / end
-    if(vs.role==='host'&&!vs.rematchAt&&settled){
-      vs.rematchAt=srvNow()+30000;
+    if(vs.role==='host'&&!vs._rmOpen&&settled){        // once per match — re-posting would wipe a vote already cast
+      vs._rmOpen=true;vs.rematchAt=srvNow()+30000;
       roomPatch(vs.code,{phase:'rematch',rematch_at:srvISO(vs.rematchAt),host_choice:null,guest_choice:null});
     }
     if(vs.rematchAt){startRematchTimer();renderRematchPanel();}
@@ -1669,9 +1695,11 @@ function startRematchTimer(){
 function stopRematchTimer(){if(vs&&vs._rmInt){clearInterval(vs._rmInt);vs._rmInt=null;}}
 async function vsChoose(c){
   if(!vs||!vs.lobbySync||mode!=='over')return;
+  const code=vs.code, role=vs.role;
   vs.myChoice=c;renderRematchPanel();
-  await roomPatch(vs.code,{[vs.role+'_choice']:c});
-  if(vs.role==='host')vsResolveRematch();
+  await roomPatch(code,{[role+'_choice']:c});
+  if(!vs)return;                                 // match ended while the patch was in flight
+  if(role==='host')vsResolveRematch();
   else if(c==='end')vsEndMatch();
 }
 function vsResolveRematch(){
@@ -1682,7 +1710,8 @@ function vsResolveRematch(){
 }
 function vsDoRematch(toSettings){
   stopRematchTimer();
-  versus=false;vs.resultShown=false;vs.myChoice=vs.oppChoice=null;vs.rematchAt=0;vs.guestReady=false;
+  versus=false;vs.resultShown=false;vs.myChoice=vs.oppChoice=null;vs.rematchAt=0;vs._rmOpen=false;
+  vs.guestReady=false;vs.hostReady=false;
   vs.myGridStr=null;vs.oppGridStr=null;
   cRematchPanel.classList.add('hidden');cArenas.classList.add('hidden');
   const base={host_score:0,guest_score:0,host_done:false,guest_done:false,
@@ -1691,8 +1720,8 @@ function vsDoRematch(toSettings){
   if(toSettings){
     roomPatch(vs.code,{...base,phase:'lobby',start_at:null});
     renderHostLobby();
-  }else{
-    const at=srvNow()+4500;vs._live=false;
+  }else{                                        // both said "play again" — straight into the 5s countdown
+    const at=srvNow()+VS_COUNTDOWN;vs._live=false;
     roomPatch(vs.code,{...base,phase:'countdown',start_at:srvISO(at)});
     vsBeginCountdown(at,vs.roomMult);
   }
