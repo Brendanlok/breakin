@@ -1007,7 +1007,7 @@ function maybeShowPtip(){
   const key=isTouch?'breakin-ptip':'breakin-ptip-kb';
   try{if(localStorage.getItem(key))return;localStorage.setItem(key,'1');}catch(e){}
   ptip.textContent=isTouch?'tap the top to pause':'press Esc to pause';
-  ptip.classList.remove('hidden');requestAnimationFrame(()=>ptip.classList.add('show'));
+  ptip.classList.remove('hidden');void ptip.offsetWidth;ptip.classList.add('show');   // reflow, not rAF — the fade still runs when the tab throttles rAF
   setTimeout(()=>{ptip.classList.remove('show');setTimeout(()=>ptip.classList.add('hidden'),600);},2800);
 }
 
