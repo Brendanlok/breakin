@@ -69,24 +69,26 @@
   #nameInput:focus{border-color:#5fb0ff;}
   #saveBtn{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:9px;
     background:#5fb0ff;color:#05121f;cursor:pointer;}
-  #board{margin:18px auto 4px;width:286px;max-width:88vw;font-variant-numeric:tabular-nums;}
+  #board{margin:28px auto 4px;width:286px;max-width:88vw;font-variant-numeric:tabular-nums;
+    border:1px solid rgba(120,150,200,.16);border-radius:12px;padding:13px 15px 11px;
+    background:rgba(11,17,27,.55);}
   #board .bt{color:#67788f;font-size:11px;letter-spacing:.22em;text-transform:uppercase;
-    margin-bottom:8px;text-align:center;}
+    margin-bottom:10px;text-align:center;}
   #board .grid{display:grid;grid-template-columns:1.9em minmax(0,1fr) auto auto;
     align-items:baseline;}
   #board .grid>span{padding:5px 6px;}
-  #board .grid>span:first-child{padding-left:0;}
-  #board .grid>span:last-child{padding-right:0;}
+  #board .grid>span:first-child{padding-left:2px;}
+  #board .grid>span:last-child{padding-right:2px;}
   #board .grid>span.head{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
     color:#5f6d82;padding-bottom:7px;}
-  #board .grid>span.head.h-rk{text-align:center;}
-  #board .grid>span.head.h-r{text-align:right;}
+  #board .grid>span.rk,#board .grid>span.nm,#board .grid>span.h-l{text-align:left;}
+  #board .grid>span.dt,#board .grid>span.sc,#board .grid>span.h-r{text-align:right;}
   #board .me{background:rgba(95,176,255,.16);}
-  #board .rk{font-weight:800;color:#5c6a80;text-align:center;}
+  #board .rk{font-weight:800;color:#5c6a80;}
   #board .rk.r1{color:#f5c451;}#board .rk.r2{color:#cfd8e4;}#board .rk.r3{color:#dc9160;}
   #board .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c4cedd;}
-  #board .dt{font-size:11px;color:#5f6d82;white-space:nowrap;text-align:right;}
-  #board .sc{font-weight:800;color:#e6edf6;white-space:nowrap;text-align:right;}
+  #board .dt{font-size:11px;color:#5f6d82;white-space:nowrap;}
+  #board .sc{font-weight:800;color:#e6edf6;white-space:nowrap;}
   #board .empty{color:#6b788c;font-size:13px;padding:10px;text-align:center;}
   #board .bmore{display:block;margin:8px auto 0;padding:6px 14px;font:inherit;font-size:11px;
     letter-spacing:.14em;text-transform:uppercase;color:#8b98ac;background:#141d2b;
@@ -374,7 +376,7 @@ function renderBoard(mine){
   const mineIdx=hl?list.findIndex(s=>s.name===hl.name&&s.score===hl.score):-1;
   const showAll=boardExpanded||mineIdx>=BOARD_COLLAPSED;   // never hide the player's own fresh score
   const shown=showAll?list:list.slice(0,BOARD_COLLAPSED);
-  html+='<div class="grid"><span class="head h-rk">#</span><span class="head">name</span>'
+  html+='<div class="grid"><span class="head h-l">#</span><span class="head h-l">name</span>'
     +'<span class="head h-r">date</span><span class="head h-r">score</span>';
   html+=shown.map((s,i)=>{
     const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
