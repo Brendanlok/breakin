@@ -218,6 +218,19 @@
   #compete #cCodeIn:focus{border-color:#5fb0ff;}
   #compete .cerr{font-size:12px;line-height:1.45;color:#e6957f;min-height:15px;}
   #compete .cerr.ok{color:#8fd6a0;}
+  #compete #cName{width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;text-align:center;
+    border-radius:9px;border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;font-family:inherit;}
+  #compete #cName:focus{border-color:#5fb0ff;}
+  #compete #cResultTitle{font-size:17px;font-weight:800;letter-spacing:.01em;color:#eaf2ff;}
+  #compete #cResultScore{font-size:14px;color:#c4cedd;font-variant-numeric:tabular-nums;margin-top:-4px;}
+  #hud .st-opp b{color:#8fd6a0;}
+  #hud .st-opp i{max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #hud .st-opp.ahead b{color:#ff9d8a;}
+  #vsCd{position:fixed;inset:0;z-index:46;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(6,9,14,.6);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}
+  #vsCd #vsCdNum{font-size:96px;font-weight:800;color:#eaf2ff;line-height:1;
+    text-shadow:0 0 40px rgba(95,176,255,.55);font-variant-numeric:tabular-nums;}
+  #vsCd .vsCdSub{margin-top:12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8fd6a0;}
   .hidden{display:none!important;}
 </style>
 </head>
@@ -228,6 +241,7 @@
   <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
   <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
   <div class="stat st-score"><b id="hScore">0</b><i>score</i></div>
+  <div class="stat st-opp hidden" id="hudOpp"><b id="hOpp">0</b><i id="hOppName">rival</i></div>
 </div>
 <div id="gate" class="hidden">
   <div class="gpanel">
@@ -279,6 +293,7 @@
     <div class="ctitle">Competitive</div>
     <div id="cChoice" class="cview">
       <p class="csub">Play your own board head-to-head with a friend &mdash; live scores, highest total wins.</p>
+      <input id="cName" maxlength="14" placeholder="Your name" autocomplete="off" spellcheck="false">
       <button id="cInvite">Invite a friend</button>
       <button id="cJoin" class="ghost">Join with a code</button>
       <button id="cBack1" class="link">Back to menu</button>
@@ -288,18 +303,29 @@
       <div id="cCode" class="ccode">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
       <canvas id="cQR" width="150" height="150"></canvas>
       <button id="cCopy" class="ghost">Copy join link</button>
-      <div class="cnote">Live head-to-head matches switch on in the next update. For now this is the invite flow &mdash; the code and QR are real and shareable.</div>
+      <div id="cInviteStatus" class="csub" style="margin:0"></div>
+      <button id="cStart" class="hidden">Start match</button>
+      <div id="cInviteNote" class="cnote">They join by code or by scanning this. Keep this screen open.</div>
       <button id="cBack2" class="link">Cancel</button>
     </div>
     <div id="cJoinV" class="cview hidden">
       <p class="csub">Enter the 6-character code from your friend.</p>
       <input id="cCodeIn" maxlength="6" placeholder="ABC234" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <button id="cJoinGo">Join</button>
+      <div id="cJoinStatus" class="csub" style="margin:0"></div>
       <div id="cJoinErr" class="cerr"></div>
       <button id="cBack3" class="link">Back</button>
     </div>
+    <div id="cResultV" class="cview hidden">
+      <div id="cResultTitle"></div>
+      <div id="cResultScore"></div>
+      <div id="cResultWait" class="cnote hidden">Waiting for <span id="cResultOpp">your opponent</span> to finish&hellip;</div>
+      <button id="cRematch" class="hidden">Rematch</button>
+      <button id="cResultExit" class="ghost">Exit to menu</button>
+    </div>
   </div>
 </div>
+<div id="vsCd" class="hidden"><span id="vsCdNum">3</span><span class="vsCdSub">match starting</span></div>
 <div id="overlay">
   <div class="badge" id="badge">Breakout, in reverse</div>
   <h1>BREAKIN</h1>
@@ -801,6 +827,7 @@ function endGame(reason){
   over=true;
   if(mode==='attract')return;             // loop() will quietly restart the demo next frame
   mode='over';
+  if(versus){vsEndGame(reason);return;}   // competitive: own result flow, no leaderboard / personal-best
   const secs=Math.floor(elapsed), blk=placed, score=Math.round(blk*mult);
   const prevBest=loadBest(), newBest=score>0&&score>prevBest;
   if(newBest)saveBest(score);
@@ -897,7 +924,9 @@ const typingInText=()=>{                               // true only for real tex
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   const space=(e.key===' '||e.code==='Space');
+  if(k==='escape'&&!vsCd.classList.contains('hidden')){e.preventDefault();vsCleanup();startAttract();return;}
   if(k==='escape'&&!compete.classList.contains('hidden')){e.preventDefault();closeCompete();return;}
+  if(k==='escape'&&mode==='play'&&versus){e.preventDefault();endGame('You forfeited');return;}   // no pausing a live match
   if(k==='escape'&&mode==='play'){                      // Esc: pause / un-pause
     e.preventDefault();
     if(paused)beginResume(); else pauseGame();
@@ -912,7 +941,7 @@ addEventListener('keydown',e=>{
     if(adminSeq.endsWith('admin')){adminSeq='';e.preventDefault();openAdmin();return;}
   }
   if(k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){held.add(k);e.preventDefault();return;}
-  if(space&&mode!=='play'&&!typingInText()&&compete.classList.contains('hidden')){
+  if(space&&mode!=='play'&&!typingInText()&&compete.classList.contains('hidden')&&vsCd.classList.contains('hidden')){
     e.preventDefault();startPlay();                     // Space = solo play / play again from any menu screen
   }
 });
@@ -1068,17 +1097,65 @@ function frame(t){
 
 startBtn.addEventListener('click',startPlay);
 
-// ---- competitive (shell: menu split + invite / join + 6-char code + QR. Live match sync lands in the next update.) ----
+// ---- competitive: separate boards, live scoreboard, highest total wins.
+//      Sync = a Supabase table (breakin_rooms) + ~1.3s polling. No websocket, no new deps.
+//      Needs breakin-rooms.sql run once; until then create/join fail soft and the code + QR still share. ----
 const compete=document.getElementById('compete');
-const cViews={choice:document.getElementById('cChoice'),invite:document.getElementById('cInviteV'),join:document.getElementById('cJoinV')};
+const cViews={choice:document.getElementById('cChoice'),invite:document.getElementById('cInviteV'),
+  join:document.getElementById('cJoinV'),result:document.getElementById('cResultV')};
 const cCodeEl=document.getElementById('cCode');
 const cQR=document.getElementById('cQR');
+const cNameIn=document.getElementById('cName');
 const cCodeIn=document.getElementById('cCodeIn');
 const cJoinErr=document.getElementById('cJoinErr');
-const CODE_ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no I L O / 0 1 — unambiguous read aloud or typed
-let roomCode='';
+const cJoinGo=document.getElementById('cJoinGo');
+const cJoinStatus=document.getElementById('cJoinStatus');
+const cInviteStatus=document.getElementById('cInviteStatus');
+const cInviteNote=document.getElementById('cInviteNote');
+const cStart=document.getElementById('cStart');
+const cRematch=document.getElementById('cRematch');
+const cResultTitle=document.getElementById('cResultTitle');
+const cResultScore=document.getElementById('cResultScore');
+const cResultWait=document.getElementById('cResultWait');
+const hudOpp=document.getElementById('hudOpp');
+const hOpp=document.getElementById('hOpp');
+const hOppName=document.getElementById('hOppName');
+const vsCd=document.getElementById('vsCd');
+const vsCdNum=document.getElementById('vsCdNum');
+
+const CODE_ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no I L O / 0 1 - unambiguous read aloud or typed
 const makeCode=()=>{let s='';for(let i=0;i<6;i++)s+=CODE_ALPHABET[Math.floor(Math.random()*CODE_ALPHABET.length)];return s;};
 const joinURL=code=>location.origin+location.pathname+'?join='+code;
+let roomCode='';
+
+// server clock (Date header, ~1s resolution - enough for a shared 3-2-1)
+let srvOffset=0;
+function noteTime(r){try{const d=r&&r.headers.get('date'),t=d&&Date.parse(d);if(t)srvOffset=t-Date.now();}catch(e){}}
+const srvNow=()=>Date.now()+srvOffset;
+const srvISO=ms=>new Date(ms||srvNow()).toISOString();
+
+const ROOMS_URL=REST+'/breakin_rooms';
+const rHead=x=>Object.assign({apikey:LB_KEY,'Content-Type':'application/json'},x||{});
+async function roomCreate(code,name,m){
+  const r=await fetch(ROOMS_URL,{method:'POST',headers:rHead({Prefer:'return=representation'}),
+    body:JSON.stringify({code,host_name:name,mult:m,phase:'lobby',host_seen:srvISO()})});
+  noteTime(r);if(!r.ok)throw new Error('create '+r.status);
+  return (await r.json())[0];
+}
+async function roomGet(code){
+  const r=await fetch(ROOMS_URL+'?code=eq.'+encodeURIComponent(code)+'&limit=1',{headers:rHead()});
+  noteTime(r);if(!r.ok)throw new Error('get '+r.status);
+  return (await r.json())[0]||null;
+}
+async function roomPatch(code,fields){
+  try{const r=await fetch(ROOMS_URL+'?code=eq.'+encodeURIComponent(code),{method:'PATCH',
+    headers:rHead({Prefer:'return=minimal'}),body:JSON.stringify(fields)});noteTime(r);return r.ok;}
+  catch(e){return false;}
+}
+function roomDelete(code){try{fetch(ROOMS_URL+'?code=eq.'+encodeURIComponent(code),{method:'DELETE',headers:rHead({Prefer:'return=minimal'})}).catch(()=>{});}catch(e){}}
+
+let vs=null;        // competitive session state, null when not in one
+let versus=false;   // true only while a competitive game is actually being played / just ended
 
 function drawQR(text){
   try{
@@ -1093,19 +1170,185 @@ function drawQR(text){
 }
 const showCView=name=>{for(const k in cViews)cViews[k].classList.toggle('hidden',k!==name);};
 function openCompete(view){compete.classList.remove('hidden');showCView(view||'choice');}
-function closeCompete(){compete.classList.add('hidden');cJoinErr.textContent='';cJoinErr.classList.remove('ok');}
-function startInvite(){
+function myName(){const n=((cNameIn.value||'').trim()||loadName()||'Player').slice(0,14);try{localStorage.setItem('breakin-name',n);}catch(e){}return n;}
+
+function vsCleanup(keepRoom){
+  if(vs){
+    clearInterval(vs.poll);clearInterval(vs.push);clearInterval(vs.cdInt);
+    if(vs.role==='host'&&!keepRoom)roomDelete(vs.code);
+  }
+  vs=null;versus=false;
+  hudOpp.classList.add('hidden');vsCd.classList.add('hidden');
+}
+function closeCompete(){
+  compete.classList.add('hidden');
+  cJoinErr.textContent='';cJoinErr.classList.remove('ok');
+  vsCleanup();
+  if(overlay.classList.contains('hidden'))startAttract();   // came out of a match -> bring the menu back
+}
+
+async function startInvite(){
   roomCode=makeCode();
-  cCodeEl.textContent=roomCode.split('').join(' ');
+  cCodeEl.textContent=roomCode.split('').join(' ');
   drawQR(joinURL(roomCode));
+  cStart.classList.add('hidden');
+  cInviteNote.textContent='They join by code or by scanning this. Keep this screen open.';
+  cInviteStatus.textContent='Setting up...';
+  showCView('invite');
+  try{
+    await roomCreate(roomCode,myName(),mult);
+    vs={code:roomCode,role:'host',name:myName()};
+    cInviteStatus.textContent='Waiting for someone to join...';
+    vs.poll=setInterval(vsTick,1300);
+  }catch(e){
+    cInviteStatus.textContent='';
+    cInviteNote.textContent='Could not reach the match server. The code and QR still work to share, but live play needs the server set up (breakin-rooms.sql).';
+  }
+}
+function hostStart(){
+  if(!vs||vs.role!=='host')return;
+  vs._live=false;
+  const at=srvNow()+4500;
+  roomPatch(vs.code,{phase:'countdown',start_at:srvISO(at),mult:mult});
+  vsBeginCountdown(at,mult);
+}
+function resetJoinView(){
+  cCodeIn.disabled=false;cJoinGo.classList.remove('hidden');
+  cJoinErr.textContent='';cJoinErr.classList.remove('ok');cJoinStatus.textContent='';
+}
+async function guestJoin(){
+  const code=cCodeIn.value.trim();
+  if(code.length!==6){cJoinErr.classList.remove('ok');cJoinErr.textContent='Enter all 6 characters.';return;}
+  cJoinGo.classList.add('hidden');cJoinErr.textContent='';cJoinStatus.textContent='Looking for that game...';
+  let room;
+  try{room=await roomGet(code);}
+  catch(e){cJoinStatus.textContent='';cJoinGo.classList.remove('hidden');cJoinErr.textContent='Could not reach the match server - competitive is not switched on yet.';return;}
+  if(!room){cJoinStatus.textContent='';cJoinGo.classList.remove('hidden');cJoinErr.textContent='No open game with that code.';return;}
+  if(room.guest_name){cJoinStatus.textContent='';cJoinGo.classList.remove('hidden');cJoinErr.textContent='That game already has two players.';return;}
+  const ok=await roomPatch(code,{guest_name:myName(),guest_seen:srvISO()});
+  if(!ok){cJoinStatus.textContent='';cJoinGo.classList.remove('hidden');cJoinErr.textContent='Could not join - try again.';return;}
+  cCodeIn.disabled=true;
+  vs={code:code,role:'guest',name:myName()};
+  cJoinStatus.textContent='Joined '+(room.host_name||'the host')+"'s game. Waiting for them to start...";
+  vs.poll=setInterval(vsTick,1300);
+}
+
+async function vsTick(){
+  if(!vs)return;
+  let room;
+  try{room=await roomGet(vs.code);}catch(e){return;}
+  if(!room){vsAbort();return;}
+  applyRoom(room);
+  if(!versus)roomPatch(vs.code,{[vs.role+'_seen']:srvISO()});   // heartbeat while in the lobby / result screen
+}
+function applyRoom(r){
+  const opp=vs.role==='host'?'guest':'host';
+  vs.oppName=r[opp+'_name']||null;
+  vs.oppScore=+r[opp+'_score']||0;
+  vs.oppDone=!!r[opp+'_done'];
+  vs.oppSeen=r[opp+'_seen']?Date.parse(r[opp+'_seen']):0;
+  if(vs.oppDone)vs.oppDropped=false;                     // finishing always beats a stale heartbeat
+
+  if(r.phase==='lobby'){
+    if(vs.role==='host'){
+      if(vs.oppName){cInviteStatus.textContent=vs.oppName+' is in - start when you are ready.';cStart.classList.remove('hidden');}
+      else{cInviteStatus.textContent='Waiting for someone to join...';cStart.classList.add('hidden');}
+    }else if(!cViews.result.classList.contains('hidden')||!cViews.join.classList.contains('hidden')){
+      showCView('join');resetJoinView();cCodeIn.disabled=true;cJoinGo.classList.add('hidden');
+      cJoinStatus.textContent='Waiting for '+(r.host_name||'the host')+' to start...';
+    }
+  }else if(r.phase==='countdown'&&!vs.counting&&mode!=='play'){
+    vsBeginCountdown(Date.parse(r.start_at),+r.mult||2);
+  }
+
+  if(versus){
+    if(!vs.oppDone&&vs.oppSeen&&srvNow()-vs.oppSeen>15000)vs.oppDropped=true;
+    if(mode==='over')vsRenderResult();      // keep the result view live until the opponent's outcome settles
+    else vsRenderBar();
+  }
+}
+
+function vsBeginCountdown(at,m){
+  vs.counting=true;vs.mult=m;
+  compete.classList.add('hidden');
+  vsCd.classList.remove('hidden');
+  const tick=()=>{
+    const left=at-srvNow();
+    if(vs.role==='host'&&!vs._live&&left<=900){vs._live=true;roomPatch(vs.code,{phase:'live'});}
+    if(left<=0){clearInterval(vs.cdInt);vs.cdInt=null;vsCd.classList.add('hidden');startVersus();return;}
+    vsCdNum.textContent=Math.max(1,Math.ceil(left/1000));
+  };
+  tick();vs.cdInt=setInterval(tick,100);
+}
+function startVersus(){
+  versus=true;vs.counting=false;vs.resultShown=false;vs.oppDropped=false;vs.oppScore=0;vs.oppDone=false;vs.myFinal=0;
+  setMult(vs.mult);
+  mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
+  overlay.classList.add('hidden');pauseEl.classList.add('hidden');compete.classList.add('hidden');nameEntry.classList.add('hidden');
+  hud.classList.remove('hidden');hudOpp.classList.remove('hidden');showTpad(true);
+  fit();reset();kick();
+  vsRenderBar();
+  clearInterval(vs.push);
+  vs.push=setInterval(()=>{if(vs)roomPatch(vs.code,{[vs.role+'_score']:Math.round(placed*mult),[vs.role+'_seen']:srvISO(),[vs.role+'_done']:mode==='over'});},900);
+}
+function vsRenderBar(){
+  if(!vs)return;
+  const mine=(mode==='play'||mode==='over')?Math.round(placed*mult):0;
+  hOppName.textContent=vs.oppName||'rival';
+  hOpp.textContent=vs.oppDropped?'left':vs.oppScore;
+  hudOpp.classList.toggle('ahead',!vs.oppDropped&&vs.oppScore>mine);
+}
+function vsEndGame(reason){
+  clearInterval(vs.push);vs.push=null;
+  const score=Math.round(placed*mult);vs.myFinal=score;
+  roomPatch(vs.code,{[vs.role+'_done']:true,[vs.role+'_score']:score,[vs.role+'_seen']:srvISO()});
+  hud.classList.add('hidden');hudOpp.classList.add('hidden');showTpad(false);
+  compete.classList.remove('hidden');showCView('result');
+  cRematch.classList.add('hidden');
+  cResultTitle.textContent=reason||'Run over';
+  cResultScore.textContent='Your score: '+score;
+  document.getElementById('cResultOpp').textContent=vs.oppName||'your opponent';
+  vsRenderResult();
+}
+function vsRenderResult(){
+  const settled=vs.oppDone||vs.oppDropped;
+  cResultWait.classList.toggle('hidden',settled);
+  cRematch.classList.toggle('hidden',!(vs.oppDone&&vs.role==='host'));   // only rematch someone who actually finished
+  if(!settled)return;                        // still "Your score: N / waiting for X..."
+  vs.resultShown=true;
+  const me=vs.myFinal||0,op=vs.oppDone?vs.oppScore:0,who=vs.oppName||'Opponent';
+  cResultTitle.textContent=(!vs.oppDone&&vs.oppDropped)?'You win - opponent left'
+    :me>op?'You win':op>me?who+' wins':'Dead heat';
+  cResultScore.textContent='You '+me+'   vs   '+who+' '+op;
+}
+function hostRematch(){
+  if(!vs||vs.role!=='host')return;
+  roomPatch(vs.code,{phase:'lobby',start_at:null,host_score:0,guest_score:0,host_done:false,guest_done:false,host_seen:srvISO()});
+  versus=false;vs.counting=false;vs.resultShown=false;
+  cRematch.classList.add('hidden');cResultWait.classList.add('hidden');
+  cInviteStatus.textContent='Waiting for someone to join...';
   showCView('invite');
 }
-document.getElementById('competeBtn').addEventListener('click',()=>openCompete('choice'));
+function vsAbort(){
+  const wasVersus=versus;
+  vsCleanup(true);
+  if(wasVersus||!overlay.classList.contains('hidden')){
+    compete.classList.remove('hidden');showCView('result');
+    cRematch.classList.add('hidden');cResultWait.classList.add('hidden');
+    cResultTitle.textContent='The other player left';
+    cResultScore.textContent='';
+  }
+}
+
+document.getElementById('competeBtn').addEventListener('click',()=>{cNameIn.value=loadName();openCompete('choice');});
 document.getElementById('cInvite').addEventListener('click',startInvite);
-document.getElementById('cJoin').addEventListener('click',()=>{cCodeIn.value='';cJoinErr.textContent='';cJoinErr.classList.remove('ok');showCView('join');setTimeout(()=>cCodeIn.focus(),30);});
+document.getElementById('cJoin').addEventListener('click',()=>{resetJoinView();cCodeIn.value='';showCView('join');setTimeout(()=>cCodeIn.focus(),30);});
+cStart.addEventListener('click',hostStart);
+cRematch.addEventListener('click',hostRematch);
+document.getElementById('cResultExit').addEventListener('click',closeCompete);
 document.getElementById('cCopy').addEventListener('click',async ev=>{
   const b=ev.currentTarget;
-  try{await navigator.clipboard.writeText(joinURL(roomCode));b.textContent='Link copied ✓';}
+  try{await navigator.clipboard.writeText(joinURL(roomCode));b.textContent='Link copied';}
   catch(err){b.textContent='Code: '+roomCode;}
   setTimeout(()=>{b.textContent='Copy join link';},1800);
 });
@@ -1113,15 +1356,11 @@ cCodeIn.addEventListener('input',()=>{
   cCodeIn.value=cCodeIn.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
   cJoinErr.textContent='';cJoinErr.classList.remove('ok');
 });
-document.getElementById('cJoinGo').addEventListener('click',()=>{
-  if(cCodeIn.value.trim().length!==6){cJoinErr.classList.remove('ok');cJoinErr.textContent='Enter all 6 characters.';return;}
-  cJoinErr.classList.add('ok');
-  cJoinErr.textContent='Code looks good. Live head-to-head matches switch on in the next update.';
-});
+cJoinGo.addEventListener('click',guestJoin);
 document.getElementById('cBack1').addEventListener('click',closeCompete);
 document.getElementById('cBack2').addEventListener('click',closeCompete);
-document.getElementById('cBack3').addEventListener('click',()=>showCView('choice'));
-compete.addEventListener('click',ev=>{if(ev.target===compete)closeCompete();});   // tap the backdrop to close
+document.getElementById('cBack3').addEventListener('click',()=>{vs?closeCompete():showCView('choice');});
+compete.addEventListener('click',ev=>{if(ev.target===compete&&vsCd.classList.contains('hidden'))closeCompete();});
 
 // The browser already throttles rAF to ~0fps in a hidden tab and resumes it on
 // its own when the tab is shown; frame() clamps the catch-up dt. A visibilitychange
@@ -1134,7 +1373,7 @@ startAttract();                            // kick off the demo behind the menu
 if((location.hash||'').toLowerCase()==='#admin')openAdmin();
 {                                          // opened from a friend's invite link → jump into Join with the code filled
   const jm=(new URLSearchParams(location.search).get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
-  if(jm){openCompete('join');cCodeIn.value=jm;}
+  if(jm){cNameIn.value=loadName();resetJoinView();openCompete('join');cCodeIn.value=jm;}
 }
 
 // ponytail: self-checks for the two invariants — never place onto the ball, always find an exit
