@@ -956,7 +956,11 @@ function frame(t){
 }
 
 startBtn.addEventListener('click',startPlay);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)rafOn=false;else kick();});
+// The browser already throttles rAF to ~0fps in a hidden tab and resumes it on
+// its own when the tab is shown; frame() clamps the catch-up dt. A visibilitychange
+// handler that flipped rafOn off here just added a way to freeze forever if the
+// "visible" event was ever missed (e.g. page loaded in a background tab). ponytail: rAF handles it.
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick();});
 
 refreshBoard();                            // load the shared board onto the opening screen
 startAttract();                            // kick off the demo behind the menu
