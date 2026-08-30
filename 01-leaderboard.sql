@@ -5,6 +5,7 @@
 --    02-backend-v2.sql    →  score guard + feedback/crash inboxes + admin RPC
 --    03-rooms.sql         →  breakin_rooms table (competitive mode)
 --    04-rooms-grid.sql    →  opponent-arena sync columns on breakin_rooms
+--    05-rooms-lobby.sql   →  pre-match speed agreement + post-match rematch vote
 --  All are idempotent (IF NOT EXISTS / OR REPLACE) — safe to re-run.
 -- ============================================================================
 -- [01/04] Breakin shared leaderboard.

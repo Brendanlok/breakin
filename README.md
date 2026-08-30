@@ -24,9 +24,10 @@ All are idempotent — safe to re-run.
 | 02 | `02-backend-v2.sql` | score plausibility guard, feedback + crash-report inboxes, admin RPC. **Set your own passphrase in section 4 before running; never commit the real value.** |
 | 03 | `03-rooms.sql` | `breakin_rooms` table — competitive mode |
 | 04 | `04-rooms-grid.sql` | `host_grid` / `guest_grid` columns — the opponent-arena view |
+| 05 | `05-rooms-lobby.sql` | pre-match speed agreement + post-match rematch vote |
 
-01 → 02 are the leaderboard chain (02 needs 01). 03 → 04 are competitive (04 needs 03).
-Competitive works score-only without 04; the arena view stays hidden until it's run.
+01 → 02 are the leaderboard chain (02 needs 01). 03 → 04 → 05 are competitive (each needs 03).
+Competitive works without 04/05 — the arena view and the lobby/rematch flow just fall back to the basics until they're run.
 
 ## Leaderboard
 

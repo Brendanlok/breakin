@@ -36,6 +36,20 @@
   #hud .st-time b{color:#57d3ff;}
   #hud .st-blocks b{color:#b98bff;}
   #hud .st-score b{color:#ffd25f;}
+  #goStats{display:flex;gap:8px;justify-content:center;margin:10px 0 4px;font-variant-numeric:tabular-nums;}
+  #goStats .gostat{display:flex;flex-direction:column;align-items:center;min-width:60px;
+    background:rgba(9,13,20,.55);border-radius:13px;padding:7px 13px;}
+  #goStats .gostat b{font-size:28px;font-weight:800;line-height:1;text-shadow:0 0 18px currentColor;}
+  #goStats .gostat i{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#7f8ca0;
+    font-style:normal;margin-top:4px;}
+  #goStats .st-time b{color:#57d3ff;}
+  #goStats .st-blocks b{color:#b98bff;}
+  #goStats .st-score b{color:#ffd25f;}
+  #goSub{font-size:12.5px;color:#8592a6;letter-spacing:.02em;margin-top:2px;}
+  #goSub b{color:#ffd25f;font-weight:700;}
+  #overlay.gameover #speed .hint{display:none;}      /* just played — no need to re-explain the slider */
+  #overlay.gameover #speed{margin-top:10px;}
+  #overlay.gameover #msg{display:none;}              /* cleared on game over — don't reserve its line */
   #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
     padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
@@ -82,7 +96,7 @@
   #board .grid>span:nth-child(4n){padding-right:2px;}    /* whole score column — keeps the last row aligned */
   #board .grid>span.head{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
     color:#5f6d82;padding-bottom:7px;}
-  #board .grid>span.head.h-r{margin-right:-.14em;}       /* cancel the trailing letter-spacing so DATE/SCORE right-align with their column */
+  #board .grid>span.head.h-r{letter-spacing:0;}          /* right-aligned headers: no tracking, so DATE/SCORE land exactly on their column edge */
   #board .grid>span.rk,#board .grid>span.nm,#board .grid>span.h-l{text-align:left;}
   #board .grid>span.dt,#board .grid>span.sc,#board .grid>span.h-r{text-align:right;}
   #board .me{background:rgba(95,176,255,.16);}
@@ -338,19 +352,33 @@
       <button id="cBack1" class="link">Back to menu</button>
     </div>
     <div id="cInviteV" class="cview hidden">
-      <p class="csub">Send this code or let them scan the QR.</p>
-      <div id="cCode" class="ccode">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
-      <canvas id="cQR" width="150" height="150"></canvas>
-      <button id="cCopy" class="ghost">Copy join link</button>
+      <div id="cInviteShare">
+        <p class="csub">Send this code or let them scan the QR.</p>
+        <div id="cCode" class="ccode">&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;</div>
+        <canvas id="cQR" width="150" height="150"></canvas>
+        <button id="cCopy" class="ghost">Copy join link</button>
+      </div>
+      <div id="cSpeedHost" class="cspeed hidden">
+        <span class="cspeed-lbl">Ball speed</span>
+        <div class="cspeed-row">
+          <button id="cSpdDown" class="cspd" aria-label="slower">&minus;</button>
+          <b id="cSpdVal">&times;2</b>
+          <button id="cSpdUp" class="cspd" aria-label="faster">+</button>
+        </div>
+      </div>
       <div id="cInviteStatus" class="csub" style="margin:0"></div>
       <button id="cStart" class="hidden">Start match</button>
       <div id="cInviteNote" class="cnote">They join by code or by scanning this. Keep this screen open.</div>
       <button id="cBack2" class="link">Cancel</button>
     </div>
     <div id="cJoinV" class="cview hidden">
-      <p class="csub">Enter the 6-character code from your friend.</p>
+      <p class="csub" id="cJoinLead">Enter the 6-character code from your friend.</p>
       <input id="cCodeIn" maxlength="6" placeholder="ABC234" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <button id="cJoinGo">Join</button>
+      <div id="cSpeedGuest" class="cspeed hidden">
+        <span class="cspeed-lbl">Ball speed <b id="cSpdValG">&times;2</b> &middot; set by host</span>
+      </div>
+      <button id="cReady" class="hidden">I&rsquo;m ready</button>
       <div id="cJoinStatus" class="csub" style="margin:0"></div>
       <div id="cJoinErr" class="cerr"></div>
       <button id="cBack3" class="link">Back</button>
@@ -363,6 +391,16 @@
         <div class="carena"><canvas id="cOppC" width="66" height="114"></canvas><span id="cOppLbl">Rival</span></div>
       </div>
       <div id="cResultWait" class="cnote hidden">Waiting for <span id="cResultOpp">your opponent</span> to finish&hellip;</div>
+      <div id="cRematchPanel" class="hidden">
+        <div id="cRematchBar"><div id="cRematchFill"></div></div>
+        <div id="cRematchTime" class="csub" style="margin:0">Play again? <b id="cRmSecs">30</b>s</div>
+        <div id="cRematchBtns">
+          <button id="cRmAgain">Play again</button>
+          <button id="cRmSettings" class="ghost">Change speed</button>
+          <button id="cRmEnd" class="ghost">End match</button>
+        </div>
+        <div id="cRematchOpp" class="csub" style="margin:0">&nbsp;</div>
+      </div>
       <button id="cRematch" class="hidden">Rematch</button>
       <button id="cResultExit" class="ghost">Exit to menu</button>
     </div>
@@ -374,6 +412,12 @@
   <div class="badge" id="badge">Breakout, in reverse</div>
   <h1>BREAKIN</h1>
   <p id="msg">The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.</p>
+  <div id="goStats" class="hidden">
+    <div class="gostat st-time"><b id="goTime">0</b><i>time</i></div>
+    <div class="gostat st-blocks"><b id="goBlk">0</b><i>blocks</i></div>
+    <div class="gostat st-score"><b id="goScore">0</b><i>score</i></div>
+  </div>
+  <div id="goSub" class="hidden"></div>
   <div id="nameEntry" class="hidden">
     <div class="ne-label">&#9733; You made the leaderboard</div>
     <div class="ne-row">
@@ -430,6 +474,8 @@ const isTouch=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0
 const titleEl=overlay.querySelector('h1');
 const badgeEl=document.getElementById('badge');
 const msgEl=document.getElementById('msg');
+const goStats=document.getElementById('goStats'), goSub=document.getElementById('goSub');
+const goTime=document.getElementById('goTime'), goBlk=document.getElementById('goBlk'), goScore=document.getElementById('goScore');
 const nameEntry=document.getElementById('nameEntry');
 const nameInput=document.getElementById('nameInput');
 const saveBtn=document.getElementById('saveBtn');
@@ -884,9 +930,13 @@ function endGame(reason){
   boardExpanded=false;                     // start the game-over board collapsed so the screen stays short
   badgeEl.textContent=reason||'Game over';
   titleEl.textContent='GAME OVER';
-  msgEl.innerHTML=`<b>${blk}</b> blocks &times; <b>${mult}</b> = <b>${score}</b><br><span style="color:#7f8ca0;font-size:13px">${secs}s survived</span>`
-    +(newBest?`<br><span style="color:#ffd25f;font-size:13px;font-weight:700">&#9733; New personal best!</span>`
-      :bestShown>0?`<br><span style="color:#7f8ca0;font-size:13px">Best ${bestShown}</span>`:'');
+  msgEl.textContent='';
+  goTime.textContent=secs+'s';goBlk.textContent=blk;goScore.textContent=score;
+  goStats.classList.remove('hidden');overlay.classList.add('gameover');
+  goSub.innerHTML=`${blk} &times; ${mult} speed`
+    +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`
+      :bestShown>0?` &nbsp;&middot;&nbsp; best ${bestShown}`:'');
+  goSub.classList.remove('hidden');
   startBtn.querySelector('.lbl').textContent='Play again';
   homeLink.classList.remove('hidden');
   overlay.classList.remove('hidden');
@@ -916,6 +966,7 @@ function startAttract(){                   // demo playing behind the menu
   titleEl.textContent='BREAKIN';
   msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.'
     +(loadBest()>0?`<br><span style="color:#7f8ca0;font-size:13px">Your best <b style="color:#ffd25f">${loadBest()}</b></span>`:'');
+  goStats.classList.add('hidden');goSub.classList.add('hidden');overlay.classList.remove('gameover');
   startBtn.querySelector('.lbl').textContent='Play solo';
   homeLink.classList.add('hidden');
   overlay.classList.remove('hidden');
