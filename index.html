@@ -158,7 +158,11 @@
   #pause .ptitle{font-size:15px;letter-spacing:.3em;text-transform:uppercase;color:#8ba0bd;margin-bottom:6px;}
   #pause .pmenu button{padding:13px 40px;font-size:16px;font-weight:700;border:0;border-radius:999px;cursor:pointer;}
   #pResume{background:linear-gradient(180deg,#84c4ff,#48a2f3);color:#05121f;box-shadow:0 8px 26px rgba(72,162,243,.38);}
-  #pExit{background:#1b2637;color:#cdd6e4;}
+  #pExit,#pBack{background:#1b2637;color:#cdd6e4;}
+  #pause .phint{margin-top:-4px;font-size:11px;letter-spacing:.06em;color:#67788f;}
+  #pause .phint b{color:#9fb0c7;font-weight:700;}
+  #pause .pmenu p.pwarn{max-width:240px;font-size:13px;line-height:1.45;color:#c9d3e2;margin:0 0 4px;text-align:center;}
+  #pQuit{background:#7a2230;color:#ffdfe3;}
   #pause .pcount{display:flex;flex-direction:column;align-items:center;}
   #pause #pNum{font-size:96px;font-weight:800;color:#eaf2ff;line-height:1;
     text-shadow:0 0 40px rgba(95,176,255,.55);font-variant-numeric:tabular-nums;}
@@ -275,7 +279,16 @@
   <div class="pmenu" id="pMenu">
     <div class="ptitle">PAUSED</div>
     <button id="pResume">Continue</button>
+    <div class="phint">or press <b>Spacebar</b></div>
     <button id="pExit">Exit to menu</button>
+    <div class="phint">or press <b>Esc</b></div>
+  </div>
+  <div class="pmenu hidden" id="pConfirm">
+    <div class="ptitle">Quit run?</div>
+    <p class="pwarn">You'll lose this run &mdash; the score won't be saved.</p>
+    <button id="pQuit">Quit to menu</button>
+    <button id="pBack">Keep playing</button>
+    <div class="phint">Esc to keep playing</div>
   </div>
   <div class="pcount hidden" id="pCount">
     <span id="pNum">3</span>
@@ -893,22 +906,32 @@ function startPlay(){
 // ---- pause (Esc during a game) ----
 const pauseEl=document.getElementById('pause');
 const pMenu=document.getElementById('pMenu');
+const pConfirm=document.getElementById('pConfirm');
 const pCount=document.getElementById('pCount');
 const pNum=document.getElementById('pNum');
-let paused=false,resumeIn=0,pausedAt=0;
+let paused=false,resumeIn=0,pausedAt=0,confirmingExit=false;
+function showPausePanel(which){          // 'menu' | 'confirm' | 'count'
+  confirmingExit=which==='confirm';
+  pMenu.classList.toggle('hidden',which!=='menu');
+  pConfirm.classList.toggle('hidden',which!=='confirm');
+  pCount.classList.toggle('hidden',which!=='count');
+}
 function pauseGame(){
   if(mode!=='play')return;
   if(!pausedAt)pausedAt=performance.now();
   paused=true;resumeIn=0;heldDir=0;held.clear();
-  pMenu.classList.remove('hidden');pCount.classList.add('hidden');
+  showPausePanel('menu');
   pauseEl.classList.remove('hidden');
   hud.classList.add('hidden');showTpad(false);
 }
+function askExit(){ if(paused)showPausePanel('confirm'); }
+function cancelExit(){ if(paused)showPausePanel('menu'); }
 function beginResume(){
   if(!paused)return;
+  if(confirmingExit){cancelExit();return;}   // on the "quit run?" prompt, Continue/Space just backs out
   paused=false;resumeIn=3000;
   pNum.textContent='3';
-  pMenu.classList.add('hidden');pCount.classList.remove('hidden');
+  showPausePanel('count');
 }
 function endResume(){
   if(pausedAt){startTime+=performance.now()-pausedAt;pausedAt=0;}   // don't count paused time as survival time
@@ -918,12 +941,14 @@ function endResume(){
   lastT=performance.now();
 }
 function exitToMenu(){
-  paused=false;resumeIn=0;pausedAt=0;
+  paused=false;resumeIn=0;pausedAt=0;confirmingExit=false;
   pauseEl.classList.add('hidden');
   startAttract();
 }
 document.getElementById('pResume').addEventListener('click',beginResume);
-document.getElementById('pExit').addEventListener('click',exitToMenu);
+document.getElementById('pExit').addEventListener('click',askExit);
+document.getElementById('pQuit').addEventListener('click',exitToMenu);
+document.getElementById('pBack').addEventListener('click',cancelExit);
 
 const held=new Set();
 let adminSeq='';
@@ -937,9 +962,11 @@ addEventListener('keydown',e=>{
   if(k==='escape'&&!vsCd.classList.contains('hidden')){e.preventDefault();vsCleanup();startAttract();return;}
   if(k==='escape'&&!compete.classList.contains('hidden')){e.preventDefault();closeCompete();return;}
   if(k==='escape'&&mode==='play'&&versus){e.preventDefault();endGame('You forfeited');return;}   // no pausing a live match
-  if(k==='escape'&&mode==='play'){                      // Esc: pause / un-pause
+  if(k==='escape'&&mode==='play'){                      // Esc: pause, then Exit-to-menu, then confirm
     e.preventDefault();
-    if(paused)beginResume(); else pauseGame();
+    if(!paused)pauseGame();
+    else if(confirmingExit)cancelExit();               // second Esc on the "quit run?" prompt = keep playing
+    else askExit();                                    // Esc on the pause menu = ask to exit
     return;
   }
   if(mode==='play'&&(paused||resumeIn>0)){              // during pause / countdown: space continues / skips
