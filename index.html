@@ -1000,11 +1000,13 @@ function startPlay(){
   maybeShowPtip();
 }
 
-// mobile: no keyboard — nudge the tap-to-pause gesture once
+// nudge the pause gesture once per player — tap the top on mobile, Esc on a keyboard
 const ptip=document.getElementById('ptip');
 function maybeShowPtip(){
-  if(!isTouch||versus)return;
-  try{if(localStorage.getItem('breakin-ptip'))return;localStorage.setItem('breakin-ptip','1');}catch(e){}
+  if(versus)return;
+  const key=isTouch?'breakin-ptip':'breakin-ptip-kb';
+  try{if(localStorage.getItem(key))return;localStorage.setItem(key,'1');}catch(e){}
+  ptip.textContent=isTouch?'tap the top to pause':'press Esc to pause';
   ptip.classList.remove('hidden');requestAnimationFrame(()=>ptip.classList.add('show'));
   setTimeout(()=>{ptip.classList.remove('show');setTimeout(()=>ptip.classList.add('hidden'),600);},2800);
 }
