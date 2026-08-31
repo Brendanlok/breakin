@@ -291,6 +291,11 @@
     opacity:0;transition:opacity .5s;}
   #ptip.show{opacity:1;}
   .hidden{display:none!important;}
+  /* Short windows: a centred flex column clips its own top out of reach once the
+     content is taller than the window. `safe center` falls back to top-aligned so
+     everything stays scrollable. Old engines drop the line and keep plain centring. */
+  #overlay{justify-content:safe center;}
+  #admin,#fb,#compete{overflow-y:auto;align-items:safe center;}
 </style>
 </head>
 <body>
