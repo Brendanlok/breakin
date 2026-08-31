@@ -294,7 +294,7 @@
   #vsCd .vsCdSub{margin-top:12px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8fd6a0;}
   /* Wide screens leave ~450px of empty background either side of the arena (the arena itself is
      deliberately the same size on every device). Park the scores you're chasing in that space. */
-  #chase{position:fixed;z-index:28;width:176px;padding:12px 13px 10px;border-radius:12px;
+  #chase{position:fixed;z-index:28;box-sizing:border-box;width:176px;padding:12px 13px 10px;border-radius:12px;
     background:#0a0f18;border:1px solid rgba(120,150,200,.16);pointer-events:none;
     font-variant-numeric:tabular-nums;animation:cfade .5s ease-out both;}
   #chase .ct{color:#67788f;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
