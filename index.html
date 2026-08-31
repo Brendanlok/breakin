@@ -1063,7 +1063,7 @@ function endGame(reason){
   msgEl.textContent='';
   goTime.textContent=secs+'s';goBlk.textContent=blk;goScore.textContent=score;
   goStats.classList.remove('hidden');overlay.classList.add('gameover');
-  goSub.innerHTML=`${blk} &times; ${mult} speed`
+  goSub.innerHTML=`${blk} block${blk===1?'':'s'} &times; ${mult} speed = ${score}`
     +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`
       :bestShown>0?` &nbsp;&middot;&nbsp; best ${bestShown}`:'');
   goSub.classList.remove('hidden');
