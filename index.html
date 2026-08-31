@@ -842,8 +842,9 @@ function fit(){
     for(let r=0;r<Math.min(rows,grid.length);r++)g[r]=grid[r];
     grid=g;
   }
+  placeChase();                       // fit() is the one place geometry changes — keep the side panel with it
 }
-addEventListener('resize',()=>{fit();placeChase();if(ball&&mode!=='play')draw();});
+addEventListener('resize',()=>{fit();if(ball&&mode!=='play')draw();});
 fit();
 
 // Ball speed / score multiplier — set on the menu only, locked once a game starts.
