@@ -36,9 +36,7 @@
   #hud .st-time b{color:#57d3ff;}
   #hud .st-blocks b{color:#b98bff;}
   #hud .st-score b{color:#ffd25f;}
-  #hud .st-best{opacity:.6;padding:4px 10px;min-width:44px;align-self:center;}
-  #hud .st-best b{font-size:16px;color:#c9a94f;text-shadow:none;}
-  #hud .st-best i{font-size:8px;margin-top:3px;}
+  #hud .st-score .tgt{font-size:15px;font-weight:700;color:#8f7736;text-shadow:none;margin-left:1px;}
   #hud .st-score.newbest{animation:nbpulse 1.2s ease-in-out infinite;}
   #hud .st-score.newbest i{color:#ffd25f;}
   @keyframes nbpulse{0%,100%{box-shadow:0 0 0 1px rgba(255,210,95,.4),0 0 12px rgba(255,210,95,.16)}
@@ -311,8 +309,7 @@
 <div id="hud" class="hidden">
   <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
   <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
-  <div class="stat st-score" id="hudScore"><b id="hScore">0</b><i id="hScoreLbl">score</i></div>
-  <div class="stat st-best hidden" id="hudBest"><b id="hBest">0</b><i>best</i></div>
+  <div class="stat st-score" id="hudScore"><b><span id="hScore">0</span><span id="hTgt" class="tgt hidden"></span></b><i id="hScoreLbl">score</i></div>
   <div class="stat st-opp hidden" id="hudOpp"><b id="hOpp">0</b><i id="hOppName">rival</i></div>
 </div>
 <div id="ptip" class="hidden">tap the top to pause</div>
@@ -502,14 +499,13 @@ const hBlocks=document.getElementById('hBlocks');
 const hScore=document.getElementById('hScore');
 const hudScore=document.getElementById('hudScore');
 const hScoreLbl=document.getElementById('hScoreLbl');
-const hudBest=document.getElementById('hudBest');
-const hBest=document.getElementById('hBest');
+const hTgt=document.getElementById('hTgt');
 let runBest=0,beatBest=false;
-// show the stored best as a target while playing; once passed, the SCORE tile becomes NEW BEST
+// show the stored best as a target inside the SCORE tile ("14/120"); once passed, the tile becomes NEW BEST
 function armBest(on){
   runBest=on?loadBest():0;beatBest=false;
-  hBest.textContent=runBest;
-  hudBest.classList.toggle('hidden',!runBest);
+  hTgt.textContent='/'+runBest;
+  hTgt.classList.toggle('hidden',!runBest);
   hudScore.classList.remove('newbest');hScoreLbl.textContent='score';
 }
 const multSlider=document.getElementById('multSlider');
@@ -1324,7 +1320,7 @@ function frame(t){
     const liveScore=Math.round(placed*mult);
     hScore.textContent=liveScore;
     if(runBest&&!beatBest&&liveScore>runBest){
-      beatBest=true;hudBest.classList.add('hidden');
+      beatBest=true;hTgt.classList.add('hidden');
       hudScore.classList.add('newbest');hScoreLbl.textContent='new best';
     }
     if(versus)vsRenderBar();               // keep ahead/behind + the "you overtook them" callout live, not just on the 1.3s poll
