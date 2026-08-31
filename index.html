@@ -23,7 +23,7 @@
     box-shadow:0 0 80px rgba(80,140,255,.18);border-radius:4px;
     animation:cfade .5s ease-out both;}
   @keyframes cfade{from{opacity:0}to{opacity:1}}
-  @media (prefers-reduced-motion:reduce){canvas{animation:none;}}
+  @media (prefers-reduced-motion:reduce){canvas{animation:none;}#hud .st-score.newbest{animation:none;box-shadow:0 0 0 1px rgba(255,210,95,.7);}}
   #hud{position:fixed;top:calc(9px + env(safe-area-inset-top,0px));left:0;right:0;display:flex;
     justify-content:center;gap:9px;padding:0 8px;flex-wrap:wrap;pointer-events:none;
     font-variant-numeric:tabular-nums;}
@@ -36,6 +36,13 @@
   #hud .st-time b{color:#57d3ff;}
   #hud .st-blocks b{color:#b98bff;}
   #hud .st-score b{color:#ffd25f;}
+  #hud .st-best{opacity:.6;padding:4px 10px;min-width:44px;align-self:center;}
+  #hud .st-best b{font-size:16px;color:#c9a94f;text-shadow:none;}
+  #hud .st-best i{font-size:8px;margin-top:3px;}
+  #hud .st-score.newbest{animation:nbpulse 1.2s ease-in-out infinite;}
+  #hud .st-score.newbest i{color:#ffd25f;}
+  @keyframes nbpulse{0%,100%{box-shadow:0 0 0 1px rgba(255,210,95,.4),0 0 12px rgba(255,210,95,.16)}
+    50%{box-shadow:0 0 0 1px rgba(255,210,95,.85),0 0 26px rgba(255,210,95,.42)}}
   #goStats{display:flex;gap:8px;justify-content:center;margin:10px 0 4px;font-variant-numeric:tabular-nums;}
   #goStats .gostat{display:flex;flex-direction:column;align-items:center;min-width:60px;
     background:rgba(9,13,20,.55);border-radius:13px;padding:7px 13px;}
@@ -304,7 +311,8 @@
 <div id="hud" class="hidden">
   <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
   <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
-  <div class="stat st-score"><b id="hScore">0</b><i>score</i></div>
+  <div class="stat st-score" id="hudScore"><b id="hScore">0</b><i id="hScoreLbl">score</i></div>
+  <div class="stat st-best hidden" id="hudBest"><b id="hBest">0</b><i>best</i></div>
   <div class="stat st-opp hidden" id="hudOpp"><b id="hOpp">0</b><i id="hOppName">rival</i></div>
 </div>
 <div id="ptip" class="hidden">tap the top to pause</div>
@@ -485,6 +493,18 @@ const hud=document.getElementById('hud');
 const hTime=document.getElementById('hTime');
 const hBlocks=document.getElementById('hBlocks');
 const hScore=document.getElementById('hScore');
+const hudScore=document.getElementById('hudScore');
+const hScoreLbl=document.getElementById('hScoreLbl');
+const hudBest=document.getElementById('hudBest');
+const hBest=document.getElementById('hBest');
+let runBest=0,beatBest=false;
+// show the stored best as a target while playing; once passed, the SCORE tile becomes NEW BEST
+function armBest(on){
+  runBest=on?loadBest():0;beatBest=false;
+  hBest.textContent=runBest;
+  hudBest.classList.toggle('hidden',!runBest);
+  hudScore.classList.remove('newbest');hScoreLbl.textContent='score';
+}
 const multSlider=document.getElementById('multSlider');
 const multVal=document.getElementById('multVal');
 const tctl=document.getElementById('tctl');
@@ -1000,7 +1020,7 @@ function startPlay(){
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
   nameEntry.classList.add('hidden');homeLink.classList.add('hidden');
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');
-  hud.classList.remove('hidden');showTpad(true);
+  hud.classList.remove('hidden');showTpad(true);armBest(true);
   fit();reset();kick();
   maybeShowPtip();
 }
@@ -1252,7 +1272,12 @@ function frame(t){
   if(mode==='play'){
     hTime.textContent=Math.floor(elapsed);
     hBlocks.textContent=placed;
-    hScore.textContent=Math.round(placed*mult);
+    const liveScore=Math.round(placed*mult);
+    hScore.textContent=liveScore;
+    if(runBest&&!beatBest&&liveScore>runBest){
+      beatBest=true;hudBest.classList.add('hidden');
+      hudScore.classList.add('newbest');hScoreLbl.textContent='new best';
+    }
     if(versus)vsRenderBar();               // keep ahead/behind + the "you overtook them" callout live, not just on the 1.3s poll
   }
   requestAnimationFrame(loop);
@@ -1586,7 +1611,7 @@ function startVersus(){
   setMult(vs.mult);
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');compete.classList.add('hidden');nameEntry.classList.add('hidden');
-  hud.classList.remove('hidden');hudOpp.classList.remove('hidden');showTpad(true);
+  hud.classList.remove('hidden');hudOpp.classList.remove('hidden');showTpad(true);armBest(false);
   fit();reset();kick();
   vsRenderBar();
   clearInterval(vs.push);
