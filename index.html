@@ -553,6 +553,7 @@ const randomName=()=>{const p=a=>a[Math.floor(Math.random()*a.length)];return p(
 const saveBest=n=>{try{localStorage.setItem('breakin-best',n);}catch(e){}};
 
 let remoteBoard=null;        // array once the shared board loads this session; null = offline / not configured
+let boardLoading=false;      // first shared-board fetch in flight — don't claim the board is empty or offline yet
 let pendingScore=null;
 let boardExpanded=false;     // leaderboard shows top 5 until the player taps "show all" (keeps the game-over screen short on phones)
 const BOARD_COLLAPSED=5;
@@ -574,7 +575,7 @@ async function lbSubmit(e){
     return r.ok;
   }catch(err){return false;}
 }
-async function refreshBoard(){remoteBoard=await lbFetch();renderBoard();}
+async function refreshBoard(){remoteBoard=await lbFetch();boardLoading=false;renderBoard();}
 
 // ---- best-effort crash + feedback reporting (Supabase, anon-insert only) ----
 const REST=LB_URL.replace(/\/breakin_scores$/,'');
@@ -600,9 +601,10 @@ const currentBoard=()=>remoteBoard||loadLocal();
 
 function renderBoard(mine){
   const list=currentBoard().slice(0,MAXBOARD);
-  const tag=!lbOn()?' &middot; this device':(remoteBoard?'':' &middot; offline');
+  const tag=!lbOn()?' &middot; this device':(remoteBoard||boardLoading?'':' &middot; offline');
   let html='<div class="bt">Leaderboard'+tag+'</div>';
-  if(!list.length){board.innerHTML=html+'<div class="empty">No scores yet &mdash; play to claim #1.</div>';return;}
+  if(!list.length){board.innerHTML=html+'<div class="empty">'
+    +(boardLoading?'Loading scores&hellip;':'No scores yet &mdash; play to claim #1.')+'</div>';return;}
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
   const mineIdx=hl?list.findIndex(s=>s.name===hl.name&&s.score===hl.score):-1;
   const showAll=boardExpanded||mineIdx>=BOARD_COLLAPSED;   // never hide the player's own fresh score
@@ -1875,6 +1877,8 @@ compete.addEventListener('click',ev=>{if(ev.target===compete&&vsCd.classList.con
 // "visible" event was ever missed (e.g. page loaded in a background tab). ponytail: rAF handles it.
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick();});
 
+boardLoading=lbOn();
+renderBoard();                             // draw the panel now — an unrendered #board is a styled empty rectangle
 refreshBoard();                            // load the shared board onto the opening screen
 startAttract();                            // kick off the demo behind the menu
 if((location.hash||'').toLowerCase()==='#admin')openAdmin();
