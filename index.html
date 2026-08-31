@@ -120,13 +120,13 @@
   #chint{margin-top:18px;font-size:12px;color:#5f6d82;letter-spacing:.03em;}
   #chint b{color:#93a1b5;font-weight:700;}
   @media (pointer:coarse){#chint{display:none;}}
-  #tctl{margin:14px 0 0;}
-  #tctl .slbl{display:block;color:#7f8ca0;font-size:11px;letter-spacing:.14em;
+  #tctl,#sctl{margin:14px 0 0;}
+  #tctl .slbl,#sctl .slbl{display:block;color:#7f8ca0;font-size:11px;letter-spacing:.14em;
     text-transform:uppercase;margin-bottom:8px;}
-  #tctl .srow{display:flex;gap:8px;justify-content:center;}
-  #tctl button{padding:9px 18px;font-size:13px;font-weight:700;border-radius:999px;cursor:pointer;
+  #tctl .srow,#sctl .srow{display:flex;gap:8px;justify-content:center;}
+  #tctl button,#sctl button{padding:9px 18px;font-size:13px;font-weight:700;border-radius:999px;cursor:pointer;
     color:#cdd6e4;background:#152131;border:1px solid #2b3a52;}
-  #tctl button.on{color:#05121f;background:#5fb0ff;border-color:#5fb0ff;}
+  #tctl button.on,#sctl button.on{color:#05121f;background:#5fb0ff;border-color:#5fb0ff;}
   #tpad{position:fixed;inset:0;z-index:20;pointer-events:none;}
   #tpad .tp{position:absolute;bottom:0;top:45%;width:44%;pointer-events:auto;
     display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:300;
@@ -465,6 +465,13 @@
     <div class="srow">
       <button data-t="buttons">On-screen buttons</button>
       <button data-t="tilt">Tilt</button>
+    </div>
+  </div>
+  <div id="sctl">
+    <span class="slbl">Sound</span>
+    <div class="srow">
+      <button data-s="1">On</button>
+      <button data-s="0">Off</button>
     </div>
   </div>
   <div id="playRow">
@@ -877,6 +884,41 @@ if(isTouch){
     el.addEventListener('pointercancel',clr);
   });
 }
+// ---- sound: tiny WebAudio blips, no assets, no files. Silent behind the start menu. ----
+let sfxOn=true, actx=null, lastSfx=0;
+try{sfxOn=localStorage.getItem('breakin-sfx')!=='0';}catch(e){}
+const SFX={wall:[300,.05,'square',.09],solid:[470,.06,'square',.11],
+           paddle:[720,.09,'triangle',.17],over:[240,.55,'sawtooth',.15]};
+function sfx(kind,force){
+  if(!sfxOn||(mode==='attract'&&!force))return;   // the menu demo must never make noise on page load
+  const now=performance.now();
+  if(kind!=='over'&&now-lastSfx<28)return;        // a fast rally shouldn't stack into a buzz
+  lastSfx=now;
+  try{
+    if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended')actx.resume();
+    let [f,dur,type,vol]=SFX[kind];
+    if(kind==='solid'||kind==='wall')             // arena crusts over -> the blips climb, so it tightens as you fill
+      f*=1+.5*Math.min(1,placed/(COLS*Math.max(1,spawnMaxRow)));
+    const t=actx.currentTime,o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.setValueAtTime(f,t);
+    if(kind==='over')o.frequency.exponentialRampToValueAtTime(f*.4,t+dur);
+    g.gain.setValueAtTime(vol,t);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g).connect(actx.destination);
+    o.start(t);o.stop(t+dur+.02);
+  }catch(e){}                                     // ponytail: no audio device / blocked context — play on silently
+}
+const sctlBtns=[...document.querySelectorAll('#sctl button')];
+const markSfxBtns=()=>sctlBtns.forEach(b=>b.classList.toggle('on',(b.dataset.s==='1')===sfxOn));
+markSfxBtns();
+sctlBtns.forEach(b=>b.addEventListener('click',()=>{
+  sfxOn=b.dataset.s==='1';
+  try{localStorage.setItem('breakin-sfx',sfxOn?'1':'0');}catch(e){}
+  markSfxBtns();
+  if(sfxOn)sfx('paddle',1);                       // the click is a user gesture — preview what you just turned on
+}));
+
 function showTpad(on){tpad.classList.toggle('hidden',!(on&&isTouch&&touchCtl==='buttons'));}
 
 const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
@@ -969,7 +1011,7 @@ function unstick(){
 function endGame(reason){
   over=true;
   if(mode==='attract')return;             // loop() will quietly restart the demo next frame
-  mode='over';
+  mode='over';sfx('over');
   if(versus){vsEndGame(reason);return;}   // competitive: own result flow, no leaderboard / personal-best
   const secs=Math.floor(elapsed), blk=placed, score=Math.round(blk*mult);
   const prevBest=loadBest(), newBest=score>0&&score>prevBest;
@@ -1168,7 +1210,7 @@ function step(dt){
     if(ball.x-ball.r<0){ball.x=ball.r;ball.vx=Math.abs(ball.vx);wall=true;}
     if(ball.x+ball.r>W){ball.x=W-ball.r;ball.vx=-Math.abs(ball.vx);wall=true;}
     if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy);wall=true;}
-    if(wall){minAngle();hit=true;}
+    if(wall){minAngle();hit=true;sfx('wall');}
 
     const gc=Math.floor(ball.x/cell),gr=Math.floor(ball.y/cell);
     if(filled(gr,gc)){                       // blocks are permanent walls — bounce, never remove, separate cleanly
@@ -1178,7 +1220,7 @@ function step(dt){
       else if(py<=T&&ball.vy>0){ball.y=T-ball.r-0.1;ball.vy=-Math.abs(ball.vy);}
       else if(py>=T+cell&&ball.vy<0){ball.y=T+cell+ball.r+0.1;ball.vy=Math.abs(ball.vy);}
       else{ball.x=px;ball.y=py;ball.vx=-ball.vx;ball.vy=-ball.vy;}
-      hit=true;
+      hit=true;sfx('solid');
     }
 
     const pyv=paddleY();
@@ -1189,7 +1231,7 @@ function step(dt){
       setSpeed();
       ball.y=pyv-ball.r-1;
       noPlace=0;stuckMs=0;                    // ball still reaches the paddle — not boxed in
-      hit=true;
+      hit=true;sfx('paddle');
       const pc=Math.floor(ball.x/cell), pr=spawnMaxRow-1;   // every paddle bounce crusts the row just above it — otherwise a vertical rally places nothing
       if(pc>=0&&pc<COLS&&pr>=0&&!grid[pr][pc]&&!(pending&&pending.r===pr&&pending.c===pc))pending={r:pr,c:pc,age:0};
     }
