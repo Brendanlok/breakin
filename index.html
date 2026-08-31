@@ -538,6 +538,12 @@ const loadLocal=()=>{try{return JSON.parse(localStorage.getItem('breakin-scores'
 const saveLocal=l=>{try{localStorage.setItem('breakin-scores',JSON.stringify(l.slice(0,MAXBOARD)));}catch(e){}};
 const loadName=()=>{try{return localStorage.getItem('breakin-name')||'';}catch(e){return'';}};
 const loadBest=()=>{try{return +localStorage.getItem('breakin-best')||0;}catch(e){return 0;}};
+// A player who just hits Save used to land on the board as "PLAYER", so most rows shared one name
+// and nobody could spot their own score. Suggest a distinct name instead of a shared default.
+// ponytail: two short word lists, no storage and no server — collisions are rare enough not to matter
+const NAME_A=['BRISK','CALM','ODD','NEON','LUCKY','SLY','BOLD','TINY','VAST','GRIM','WIRED','ZESTY','LOOSE','SHARP'];
+const NAME_B=['OTTER','COMET','FOX','MOTH','RAVEN','TIGER','BADGER','HAWK','LYNX','CRANE','MOLE','WASP','KOI','YAK'];
+const randomName=()=>{const p=a=>a[Math.floor(Math.random()*a.length)];return p(NAME_A)+' '+p(NAME_B);};
 const saveBest=n=>{try{localStorage.setItem('breakin-best',n);}catch(e){}};
 
 let remoteBoard=null;        // array once the shared board loads this session; null = offline / not configured
@@ -625,7 +631,7 @@ function qualifies(score){
 
 async function commitPending(){
   if(!pendingScore)return null;
-  const name=((nameInput.value||loadName()||'PLAYER').trim().slice(0,14))||'PLAYER';
+  const name=((nameInput.value||loadName()||randomName()).trim().slice(0,14))||randomName();
   try{localStorage.setItem('breakin-name',name);}catch(e){}
   const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,
     mult:pendingScore.mult,created_at:new Date().toISOString()};
@@ -636,6 +642,7 @@ async function commitPending(){
   return entry;
 }
 saveBtn.addEventListener('click',async()=>{nameEntry.classList.add('hidden');await commitPending();});
+nameInput.addEventListener('focus',()=>nameInput.select());   // one tap to replace the suggestion
 nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveBtn.click();}});
 
 // ---- hidden admin: open via #admin in the URL, or 5 quick taps on the badge. ----
@@ -987,7 +994,7 @@ function endGame(reason){
   renderBoard();
   if(qualifies(score)){                    // decide from the board already loaded — no network wait, no race
     pendingScore={score,secs,blocks:blk,mult};
-    nameInput.value=loadName();
+    nameInput.value=loadName()||randomName();   // a suggestion, not a placeholder — Save always yields a real name
     nameEntry.classList.remove('hidden');
   }else{
     pendingScore=null;
@@ -1401,7 +1408,7 @@ function drawMini(cv,str){
 }
 const showCView=name=>{for(const k in cViews)cViews[k].classList.toggle('hidden',k!==name);};
 function openCompete(view){compete.classList.remove('hidden');showCView(view||'choice');}
-function myName(){const n=((cNameIn.value||'').trim()||loadName()||'Player').slice(0,14);try{localStorage.setItem('breakin-name',n);}catch(e){}return n;}
+function myName(){const n=((cNameIn.value||'').trim()||loadName()||randomName()).slice(0,14);try{localStorage.setItem('breakin-name',n);}catch(e){}return n;}
 
 function vsCleanup(keepRoom){
   if(vs){
@@ -1786,7 +1793,7 @@ function vsAbort(){
   }
 }
 
-document.getElementById('competeBtn').addEventListener('click',()=>{cNameIn.value=loadName();openCompete('choice');});
+document.getElementById('competeBtn').addEventListener('click',()=>{cNameIn.value=loadName()||randomName();openCompete('choice');});
 document.getElementById('cInvite').addEventListener('click',startInvite);
 document.getElementById('cJoin').addEventListener('click',()=>{resetJoinView();cCodeIn.value='';showCView('join');setTimeout(()=>cCodeIn.focus(),30);});
 cStart.addEventListener('click',hostStart);
@@ -1825,7 +1832,7 @@ startAttract();                            // kick off the demo behind the menu
 if((location.hash||'').toLowerCase()==='#admin')openAdmin();
 {                                          // opened from a friend's invite link → jump into Join with the code filled
   const jm=(new URLSearchParams(location.search).get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
-  if(jm){cNameIn.value=loadName();resetJoinView();openCompete('join');cCodeIn.value=jm;}
+  if(jm){cNameIn.value=loadName()||randomName();resetJoinView();openCompete('join');cCodeIn.value=jm;}
 }
 
 // ponytail: self-checks for the two invariants — never place onto the ball, always find an exit
