@@ -803,7 +803,7 @@ document.getElementById('fbSend').addEventListener('click',()=>{
 const COLS=11;
 const ROWS=19;                        // grid is always 11 x 19 — identical cell count on phone and desktop; only the pixel size of a cell changes
 let W,H,cell,rows,spawnMaxRow;
-let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,startTime,lastT,elapsed=0;
+let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
@@ -949,7 +949,7 @@ function reset(){
   hBlkCap.textContent='/'+empties;   // arena capacity is fixed (rows never change) — show the finish line
   resetBall();
   over=false;
-  startTime=performance.now();lastT=startTime;
+  lastT=performance.now();
 }
 function resetBall(){                 // launches immediately, upward at a random angle, from 2 cells above the bar
   const sp=Math.max(3.2,cell*0.135)*ballFactor();
@@ -1065,7 +1065,7 @@ function startAttract(){                   // demo playing behind the menu
 function startPlay(){
   if(pendingScore)commitPending();         // save an unsaved qualifying score before replaying (local write is sync)
   if(isTouch&&touchCtl==='tilt'&&!tiltOn)enableTilt();   // Play is a user gesture — ok to ask now
-  mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
+  mode='play';over=false;heldDir=0;paused=false;resumeIn=0;
   nameEntry.classList.add('hidden');homeLink.classList.add('hidden');
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');
   hud.classList.remove('hidden');showTpad(true);armBest(true);
@@ -1090,7 +1090,7 @@ const pMenu=document.getElementById('pMenu');
 const pConfirm=document.getElementById('pConfirm');
 const pCount=document.getElementById('pCount');
 const pNum=document.getElementById('pNum');
-let paused=false,resumeIn=0,pausedAt=0,confirmingExit=false;
+let paused=false,resumeIn=0,confirmingExit=false;
 function showPausePanel(which){          // 'menu' | 'confirm' | 'count'
   confirmingExit=which==='confirm';
   pMenu.classList.toggle('hidden',which!=='menu');
@@ -1099,7 +1099,6 @@ function showPausePanel(which){          // 'menu' | 'confirm' | 'count'
 }
 function pauseGame(){
   if(mode!=='play')return;
-  if(!pausedAt)pausedAt=performance.now();
   paused=true;resumeIn=0;heldDir=0;held.clear();
   showPausePanel('menu');
   pauseEl.classList.remove('hidden');
@@ -1115,14 +1114,13 @@ function beginResume(){
   showPausePanel('count');
 }
 function endResume(){
-  if(pausedAt){startTime+=performance.now()-pausedAt;pausedAt=0;}   // don't count paused time as survival time
   resumeIn=0;heldDir=0;held.clear();
   pauseEl.classList.add('hidden');
   hud.classList.remove('hidden');showTpad(true);
   lastT=performance.now();
 }
 function exitToMenu(){
-  paused=false;resumeIn=0;pausedAt=0;confirmingExit=false;
+  paused=false;resumeIn=0;confirmingExit=false;
   pauseEl.classList.add('hidden');
   startAttract();
 }
@@ -1174,7 +1172,7 @@ addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));
 
 function step(dt){
   if(!grid||!grid.length||!ball)return;   // ponytail: arena not built yet — skip this frame rather than crash
-  elapsed=(performance.now()-startTime)/1000;
+  elapsed+=dt/1000;   // survival time = simulated time, so a backgrounded tab (rAF stops, ball frozen) can't inflate it
   const f=dt/16.667;
 
   if(mode==='attract'){                   // demo bot: predict the ball's crossing and slide toward it
@@ -1665,7 +1663,7 @@ function startVersus(){
   vs.hostReady=false;vs.guestReady=false;stopRematchTimer();
   cResultTitle.classList.remove('win','lose','tie');cArenas.classList.add('hidden');cRematchPanel.classList.add('hidden');
   setMult(vs.mult);
-  mode='play';over=false;heldDir=0;paused=false;resumeIn=0;pausedAt=0;
+  mode='play';over=false;heldDir=0;paused=false;resumeIn=0;
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');compete.classList.add('hidden');nameEntry.classList.add('hidden');
   hud.classList.remove('hidden');hudOpp.classList.remove('hidden');showTpad(true);armBest(false);
   fit();reset();kick();
