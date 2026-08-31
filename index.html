@@ -25,10 +25,10 @@
   @keyframes cfade{from{opacity:0}to{opacity:1}}
   @media (prefers-reduced-motion:reduce){canvas{animation:none;}#hud .st-score.newbest{animation:none;box-shadow:0 0 0 1px rgba(255,210,95,.7);}}
   #hud{position:fixed;top:calc(9px + env(safe-area-inset-top,0px));left:0;right:0;display:flex;
-    justify-content:center;gap:9px;padding:0 8px;flex-wrap:wrap;pointer-events:none;
+    justify-content:center;gap:7px;padding:0 8px;flex-wrap:wrap;pointer-events:none;
     font-variant-numeric:tabular-nums;}
-  #hud .stat{display:flex;flex-direction:column;align-items:center;min-width:56px;
-    background:rgba(9,13,20,.55);border-radius:13px;padding:6px 12px;
+  #hud .stat{display:flex;flex-direction:column;align-items:center;min-width:50px;
+    background:rgba(9,13,20,.55);border-radius:13px;padding:6px 10px;
     -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}
   #hud .stat b{font-size:27px;font-weight:800;line-height:1;text-shadow:0 0 16px currentColor;}
   #hud .stat i{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#7f8ca0;
@@ -36,10 +36,13 @@
   #hud .st-time b{color:#57d3ff;}
   #hud .st-blocks b{color:#b98bff;}
   #hud .st-score b{color:#ffd25f;}
-  #hud .st-sfx{pointer-events:auto;cursor:pointer;border:0;font:inherit;min-width:46px;padding:8px 11px;
-    -webkit-tap-highlight-color:transparent;}
-  #hud .st-sfx b{font-size:15px;color:#9fb0c8;text-shadow:none;}
-  #hud .st-sfx.off b{color:#5f6d82;}
+  #hud .st-sfx{pointer-events:auto;cursor:pointer;border:0;min-width:0;padding:0 9px;
+    justify-content:center;-webkit-tap-highlight-color:transparent;}
+  #hud .st-sfx svg{width:20px;height:20px;fill:#9fb0c8;stroke:#9fb0c8;stroke-width:1.8;stroke-linecap:round;}
+  #hud .st-sfx .wv,#hud .st-sfx .sl{fill:none;}
+  #hud .st-sfx .sl,#hud .st-sfx.off .wv{display:none;}
+  #hud .st-sfx.off .sl{display:block;}
+  #hud .st-sfx.off svg{fill:#5f6d82;stroke:#5f6d82;}
   #hud .st-score.newbest{animation:nbpulse 1.2s ease-in-out infinite;}
   #hud .st-score.newbest i{color:#ffd25f;}
   @keyframes nbpulse{0%,100%{box-shadow:0 0 0 1px rgba(255,210,95,.4),0 0 12px rgba(255,210,95,.16)}
@@ -328,7 +331,7 @@
   <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
   <div class="stat st-score" id="hudScore"><b id="hScore">0</b><i id="hScoreLbl">score</i></div>
   <div class="stat st-opp hidden" id="hudOpp"><b id="hOpp">0</b><i id="hOppName">rival</i></div>
-  <button id="hSfx" class="stat st-sfx" type="button" aria-label="Toggle sound"><b>ON</b><i>sound</i></button>
+  <button id="hSfx" class="stat st-sfx" type="button" aria-label="Toggle sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3.5L12 5.5v13L7.5 15H4z"/><path class="wv" d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path class="sl" d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></svg></button>
 </div>
 <div id="chase" class="hidden"></div>
 <div id="ptip" class="hidden">tap the top to pause</div>
@@ -930,7 +933,6 @@ const sctlBtns=[...document.querySelectorAll('#sctl button')];
 const hSfx=document.getElementById('hSfx');
 function markSfxBtns(){
   sctlBtns.forEach(b=>b.classList.toggle('on',(b.dataset.s==='1')===sfxOn));
-  hSfx.firstElementChild.textContent=sfxOn?'ON':'OFF';
   hSfx.classList.toggle('off',!sfxOn);
 }
 function setSfx(on){
