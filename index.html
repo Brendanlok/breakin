@@ -517,6 +517,7 @@ const tctlBtns=[...document.querySelectorAll('#tctl button')];
 const tpad=document.getElementById('tpad');
 const isTouch=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0
   ||'ontouchstart' in window||/[?&]touch/.test(location.search);
+if(isTouch)document.querySelector('#startBtn .sub').remove();   // no Space key on a phone — the tap is obvious
 const titleEl=overlay.querySelector('h1');
 const badgeEl=document.getElementById('badge');
 const msgEl=document.getElementById('msg');
