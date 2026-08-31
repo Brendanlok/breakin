@@ -1285,9 +1285,17 @@ function draw(){
   ctx.beginPath();ctx.moveTo(px+rr,py);
   ctx.arcTo(px+pw,py,px+pw,py+ph,rr);ctx.arcTo(px+pw,py+ph,px,py+ph,rr);
   ctx.arcTo(px,py+ph,px,py,rr);ctx.arcTo(px,py,px+pw,py,rr);ctx.closePath();ctx.fill();
-  ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fillStyle='#fff';
-  if(alive){ctx.shadowColor='rgba(130,185,255,.95)';ctx.shadowBlur=18;}
+  // the ball heats toward red and a ring closes over it while a timeout ending is counting down
+  const dgr=Math.max(0,Math.min(1,Math.max((stuckMs-800)/1200,(noPlace-24)/16)));
+  ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+  ctx.fillStyle=dgr>0?`rgb(255,${Math.round(255-185*dgr)},${Math.round(255-195*dgr)})`:'#fff';
+  if(alive||dgr>0){ctx.shadowColor=dgr>0?`rgba(255,${Math.round(190-125*dgr)},60,.95)`:'rgba(130,185,255,.95)';ctx.shadowBlur=18+16*dgr;}
   ctx.fill();ctx.shadowBlur=0;
+  if(dgr>0){                              // ring shrinks onto the ball as the countdown runs out
+    ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r+2+cell*1.7*(1-dgr),0,Math.PI*2);
+    ctx.strokeStyle=`rgba(255,${Math.round(190-125*dgr)},60,${(0.3+0.55*dgr).toFixed(2)})`;
+    ctx.lineWidth=2+2*dgr;ctx.stroke();
+  }
 }
 
 function loop(t){                          // guarded wrapper: one throw must not silently freeze the canvas
