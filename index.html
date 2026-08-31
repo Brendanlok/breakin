@@ -36,7 +36,8 @@
   #hud .st-time b{color:#57d3ff;}
   #hud .st-blocks b{color:#b98bff;}
   #hud .st-score b{color:#ffd25f;}
-  #hud .st-score .tgt{font-size:15px;font-weight:700;color:#8f7736;text-shadow:none;margin-left:1px;}
+  #hud .stat .tgt{font-size:15px;font-weight:700;color:#8f7736;text-shadow:none;margin-left:1px;}
+  #hud .st-blocks .tgt{color:#6f5a94;}
   #hud .st-score.newbest{animation:nbpulse 1.2s ease-in-out infinite;}
   #hud .st-score.newbest i{color:#ffd25f;}
   @keyframes nbpulse{0%,100%{box-shadow:0 0 0 1px rgba(255,210,95,.4),0 0 12px rgba(255,210,95,.16)}
@@ -308,7 +309,7 @@
 <div id="wrap"><canvas id="c"></canvas></div>
 <div id="hud" class="hidden">
   <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
-  <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
+  <div class="stat st-blocks"><b><span id="hBlocks">0</span><span id="hBlkCap" class="tgt"></span></b><i>blocks</i></div>
   <div class="stat st-score" id="hudScore"><b><span id="hScore">0</span><span id="hTgt" class="tgt hidden"></span></b><i id="hScoreLbl">score</i></div>
   <div class="stat st-opp hidden" id="hudOpp"><b id="hOpp">0</b><i id="hOppName">rival</i></div>
 </div>
@@ -496,6 +497,7 @@ const startBtn=document.getElementById('startBtn');
 const hud=document.getElementById('hud');
 const hTime=document.getElementById('hTime');
 const hBlocks=document.getElementById('hBlocks');
+const hBlkCap=document.getElementById('hBlkCap');
 const hScore=document.getElementById('hScore');
 const hudScore=document.getElementById('hudScore');
 const hScoreLbl=document.getElementById('hScoreLbl');
@@ -944,6 +946,7 @@ function reset(){
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;pending=null;   // one life — a miss ends the game
   empties=spawnMaxRow*COLS;
+  hBlkCap.textContent='/'+empties;   // arena capacity is fixed (rows never change) — show the finish line
   resetBall();
   over=false;
   startTime=performance.now();lastT=startTime;
