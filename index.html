@@ -36,8 +36,10 @@
   #hud .st-time b{color:#57d3ff;}
   #hud .st-blocks b{color:#b98bff;}
   #hud .st-score b{color:#ffd25f;}
-  #hud .stat .tgt{font-size:15px;font-weight:700;color:#8f7736;text-shadow:none;margin-left:1px;}
-  #hud .st-blocks .tgt{color:#6f5a94;}
+  #hud .st-sfx{pointer-events:auto;cursor:pointer;border:0;font:inherit;min-width:46px;padding:8px 11px;
+    -webkit-tap-highlight-color:transparent;}
+  #hud .st-sfx b{font-size:15px;color:#9fb0c8;text-shadow:none;}
+  #hud .st-sfx.off b{color:#5f6d82;}
   #hud .st-score.newbest{animation:nbpulse 1.2s ease-in-out infinite;}
   #hud .st-score.newbest i{color:#ffd25f;}
   @keyframes nbpulse{0%,100%{box-shadow:0 0 0 1px rgba(255,210,95,.4),0 0 12px rgba(255,210,95,.16)}
@@ -323,9 +325,10 @@
 <div id="wrap"><canvas id="c"></canvas></div>
 <div id="hud" class="hidden">
   <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
-  <div class="stat st-blocks"><b><span id="hBlocks">0</span><span id="hBlkCap" class="tgt"></span></b><i>blocks</i></div>
-  <div class="stat st-score" id="hudScore"><b><span id="hScore">0</span><span id="hTgt" class="tgt hidden"></span></b><i id="hScoreLbl">score</i></div>
+  <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
+  <div class="stat st-score" id="hudScore"><b id="hScore">0</b><i id="hScoreLbl">score</i></div>
   <div class="stat st-opp hidden" id="hudOpp"><b id="hOpp">0</b><i id="hOppName">rival</i></div>
+  <button id="hSfx" class="stat st-sfx" type="button" aria-label="Toggle sound"><b>ON</b><i>sound</i></button>
 </div>
 <div id="chase" class="hidden"></div>
 <div id="ptip" class="hidden">tap the top to pause</div>
@@ -513,17 +516,13 @@ const startBtn=document.getElementById('startBtn');
 const hud=document.getElementById('hud');
 const hTime=document.getElementById('hTime');
 const hBlocks=document.getElementById('hBlocks');
-const hBlkCap=document.getElementById('hBlkCap');
 const hScore=document.getElementById('hScore');
 const hudScore=document.getElementById('hudScore');
 const hScoreLbl=document.getElementById('hScoreLbl');
-const hTgt=document.getElementById('hTgt');
 let runBest=0,beatBest=false;
-// show the stored best as a target inside the SCORE tile ("14/120"); once passed, the tile becomes NEW BEST
+// the HUD shows bare numbers only — the stored best is tracked silently so the tile can flip to NEW BEST
 function armBest(on){
   runBest=on?loadBest():0;beatBest=false;
-  hTgt.textContent='/'+runBest;
-  hTgt.classList.toggle('hidden',!runBest);
   hudScore.classList.remove('newbest');hScoreLbl.textContent='score';
 }
 const multSlider=document.getElementById('multSlider');
@@ -928,14 +927,21 @@ function sfx(kind,force){
   }catch(e){}                                     // ponytail: no audio device / blocked context — play on silently
 }
 const sctlBtns=[...document.querySelectorAll('#sctl button')];
-const markSfxBtns=()=>sctlBtns.forEach(b=>b.classList.toggle('on',(b.dataset.s==='1')===sfxOn));
-markSfxBtns();
-sctlBtns.forEach(b=>b.addEventListener('click',()=>{
-  sfxOn=b.dataset.s==='1';
+const hSfx=document.getElementById('hSfx');
+function markSfxBtns(){
+  sctlBtns.forEach(b=>b.classList.toggle('on',(b.dataset.s==='1')===sfxOn));
+  hSfx.firstElementChild.textContent=sfxOn?'ON':'OFF';
+  hSfx.classList.toggle('off',!sfxOn);
+}
+function setSfx(on){
+  sfxOn=on;
   try{localStorage.setItem('breakin-sfx',sfxOn?'1':'0');}catch(e){}
   markSfxBtns();
   if(sfxOn)sfx('paddle',1);                       // the click is a user gesture — preview what you just turned on
-}));
+}
+markSfxBtns();
+sctlBtns.forEach(b=>b.addEventListener('click',()=>setSfx(b.dataset.s==='1')));
+hSfx.addEventListener('click',()=>setSfx(!sfxOn));   // in-game tile: one tap flips it
 
 function showTpad(on){tpad.classList.toggle('hidden',!(on&&isTouch&&touchCtl==='buttons'));placeChase();}
 
@@ -987,7 +993,6 @@ function reset(){
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;pending=null;   // one life — a miss ends the game
   empties=spawnMaxRow*COLS;
-  hBlkCap.textContent='/'+empties;   // arena capacity is fixed (rows never change) — show the finish line
   resetBall();
   over=false;
   lastT=performance.now();
@@ -1372,7 +1377,7 @@ function frame(t){
     hScore.textContent=liveScore;
     if(liveScore!==chaseScore){chaseScore=liveScore;renderChase(liveScore);}
     if(runBest&&!beatBest&&liveScore>runBest){
-      beatBest=true;hTgt.classList.add('hidden');
+      beatBest=true;
       hudScore.classList.add('newbest');hScoreLbl.textContent='new best';
     }
     if(versus)vsRenderBar();               // keep ahead/behind + the "you overtook them" callout live, not just on the 1.3s poll
