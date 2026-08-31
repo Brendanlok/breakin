@@ -1069,7 +1069,7 @@ function endGame(reason){
   goSub.classList.remove('hidden');
   startBtn.querySelector('.lbl').textContent='Play again';
   homeLink.classList.remove('hidden');
-  overlay.classList.remove('hidden');
+  overlay.classList.remove('hidden');overlay.scrollTop=0;   // land on GAME OVER + how you died, not wherever the menu was left scrolled
   hud.classList.add('hidden');showTpad(false);
   bumpGames();
   if(gameCount()%4===0){fbLink.classList.add('nudge');fbLink.textContent='★ Enjoying Breakin? Tell me what to fix / add →';}
@@ -1099,7 +1099,7 @@ function startAttract(){                   // demo playing behind the menu
   goStats.classList.add('hidden');goSub.classList.add('hidden');overlay.classList.remove('gameover');
   startBtn.querySelector('.lbl').textContent='Play solo';
   homeLink.classList.add('hidden');
-  overlay.classList.remove('hidden');
+  overlay.classList.remove('hidden');overlay.scrollTop=0;   // menu always opens at the title
   hud.classList.add('hidden');showTpad(false);
   fit();reset();kick();
 }
