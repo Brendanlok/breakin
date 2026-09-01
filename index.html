@@ -1705,12 +1705,13 @@ function applyRoom(r){
     vsBeginCountdown(Date.parse(r.start_at),+r.mult||2);
   }
 
+  if(!vs)return;                            // the phase handlers above can end the match and null vs — everything below dereferences it
   if(versus||r.phase==='rematch'){
     if(!vs.oppDone&&vs.oppSeen&&srvNow()-vs.oppSeen>15000)vs.oppDropped=true;
     if(mode==='over')vsRenderResult();      // keep the result view live until the opponent's outcome settles
     else if(versus)vsRenderBar();
   }
-  if(vs.role==='host')vsResolveRematch();
+  if(vs&&vs.role==='host')vsResolveRematch();   // vsRenderResult/vsRenderBar can end it too
 }
 function renderHostLobby(){
   showCView('invite');cRematchPanel.classList.add('hidden');

@@ -25,7 +25,7 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare n int;
 begin
 
-  if secret is null or secret <> 'CHANGE-ME-BEFORE-RUNNING' then   -- <<< EDIT THIS LINE >>>
+  if secret is null or secret <> '1s!xf0ure!ghT' then   -- <<< EDIT THIS LINE >>>
     return jsonb_build_object('ok', false, 'error', 'bad passphrase');
   end if;
 
