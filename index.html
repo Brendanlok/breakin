@@ -639,24 +639,20 @@ addEventListener('unhandledrejection',e=>reportError('unhandledrejection: '+(e.r
 const secsOf=s=>typeof s.secs==='number'?s.secs:Infinity;
 const rankCmp=(a,b)=>b.score-a.score||secsOf(a)-secsOf(b);
 
-// One row per player: a board where a single name holds every slot tells you nothing about
-// how you rank. Rows arrive best-first, so the first time a name appears is that name's best run.
-// ponytail: dedupe by name, so two players who drew the same random name share a row. 196 name
-// combos, so it is rare, and a readable board is worth more than that edge case.
-function bestPerName(list){
-  const seen=new Set();
-  return list.filter(s=>{const k=s.name;if(seen.has(k))return false;seen.add(k);return true;});
-}
-const currentBoard=()=>bestPerName((remoteBoard||loadLocal()).slice().sort(rankCmp));
+// The board ranks RUNS, best first, up to MAXBOARD of them. It used to show only each player's
+// best, which kept one name off every slot but also meant a three-player game could only ever
+// draw a three-row board. A leaderboard that runs #1 to #10 reads like a leaderboard.
+const currentBoard=()=>(remoteBoard||loadLocal()).slice().sort(rankCmp);
 
 // One quiet line under the board: where you stand, and how big the field is. Without it a
 // three-row board reads as broken rather than as a young game, and anyone outside the top 10
 // learns nothing about how they did.
 function rankLine(all,mine){
-  const field=all.length+' player'+(all.length===1?'':'s');
+  const players=new Set(all.map(s=>s.name)).size;      // rows are runs now, so the field is the distinct names
+  const field=players+' player'+(players===1?'':'s')+' so far';
   const nm=(mine&&mine.name)||loadName();
-  const i=nm?all.findIndex(s=>s.name===nm):-1;
-  return '<div class="brank">'+(i<0?field+' so far':'You are <b>#'+(i+1)+'</b> of '+field)+'</div>';
+  const i=nm?all.findIndex(s=>s.name===nm):-1;         // sorted best-first, so this is your best run
+  return '<div class="brank">'+(i<0?field:'You are <b>#'+(i+1)+'</b> &middot; '+field)+'</div>';
 }
 
 // Only your best survives on the shared board, but every run you played on this device is still
@@ -684,13 +680,14 @@ function renderBoard(mine){
   const mineIdx=hl?list.findIndex(s=>s.name===hl.name&&s.score===hl.score):-1;
   const showAll=boardExpanded||mineIdx>=BOARD_COLLAPSED;   // never hide the player's own fresh score
   const shown=showAll?list:list.slice(0,BOARD_COLLAPSED);
+  const myTop=myName?list.findIndex(s=>s.name===myName):-1;   // your highest row; the rest are your other runs
   html+='<div class="grid"><span class="head h-l">#</span><span class="head h-l">name</span>'
     +'<span class="head h-r">date</span><span class="head h-r">score</span>';
   html+=shown.map((s,i)=>{
     const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
     if(me)hl.used=true;
     const rk=i<3?' r'+(i+1):'', mc=me?' me':'';
-    const own=runs.length>1&&s.name===myName, oc=own?' own'+(histOpen?' open':''):'';
+    const own=runs.length>1&&i===myTop, oc=own?' own'+(histOpen?' open':''):'';   // only your best row carries the history caret
     const cv=own?`<span class="cv">${histOpen?'▲':'▼'}</span>`:'';
     return `<span class="rk${rk}${mc}${oc}">${i+1}</span>`
       +`<span class="nm${mc}${oc}">${esc(s.name)}${cv}</span>`
