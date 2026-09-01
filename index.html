@@ -581,7 +581,7 @@ const BOARD_COLLAPSED=5;
 async function lbFetch(){
   if(!lbOn())return null;
   try{
-    const r=await fetch(LB_URL+'?select=name,score,created_at&order=score.desc,created_at.asc&limit='+MAXBOARD,{headers:{apikey:LB_KEY}});
+    const r=await fetch(LB_URL+'?select=name,score,created_at&order=score.desc,created_at.asc&limit='+(MAXBOARD*6),{headers:{apikey:LB_KEY}});
     return r.ok?await r.json():null;
   }catch(e){return null;}
 }
@@ -617,7 +617,15 @@ function reportError(msg,stack){
 addEventListener('error',e=>reportError(e.message,e.error&&e.error.stack));
 addEventListener('unhandledrejection',e=>reportError('unhandledrejection: '+(e.reason&&e.reason.message||e.reason),e.reason&&e.reason.stack));
 
-const currentBoard=()=>remoteBoard||loadLocal();
+// One row per player: a board where a single name holds every slot tells you nothing about
+// how you rank. Rows arrive score-desc, so the first time a name appears is that name's best.
+// ponytail: dedupe by name, so two players who drew the same random name share a row. 196 name
+// combos, so it is rare, and a readable board is worth more than that edge case.
+function bestPerName(list){
+  const seen=new Set();
+  return list.filter(s=>{const k=s.name;if(seen.has(k))return false;seen.add(k);return true;});
+}
+const currentBoard=()=>bestPerName((remoteBoard||loadLocal()).slice().sort((a,b)=>b.score-a.score));
 
 function renderBoard(mine){
   const list=currentBoard().slice(0,MAXBOARD);
