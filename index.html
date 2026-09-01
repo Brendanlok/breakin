@@ -126,6 +126,7 @@
   #board .hist .hr{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;
     color:#6b788c;padding:2.5px 0;}
   #board .hist .hr b{color:#c4cedd;font-weight:800;}
+  #board .hist.solo{margin-top:9px;padding-top:2px;border-top:1px solid rgba(120,150,200,.16);}
   #board .brank{margin-top:9px;text-align:center;font-size:11.5px;color:#67788f;letter-spacing:.03em;}
   #board .brank b{color:#c4cedd;font-weight:800;}
   #board .bmore{display:block;margin:8px auto 0;padding:6px 14px;font:inherit;font-size:11px;
@@ -660,6 +661,9 @@ function myRuns(name){
   return loadLocal().filter(s=>s.name===name&&s.created_at)
     .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,HIST_MAX);
 }
+const histBlock=(runs,solo)=>`<div class="hist${solo?' solo':''}"><div class="hl">Your last ${runs.length} runs</div>`
+  +runs.map(r=>`<div class="hr"><span>${esc(fullDate(r.created_at))}${r.mult?' &middot; ball &times;'+r.mult:''}</span><b>${r.score}</b></div>`).join('')
+  +`</div>`;
 
 function renderBoard(mine){
   const all=currentBoard();
@@ -686,14 +690,13 @@ function renderBoard(mine){
       +`<span class="nm${mc}${oc}">${esc(s.name)}${cv}</span>`
       +`<span class="dt${mc}${oc}" title="${esc(fullDate(s.created_at))}">${shortDate(s.created_at)}</span>`
       +`<span class="sc${mc}${oc}">${s.score}</span>`
-      +(own&&histOpen?`<div class="hist"><div class="hl">Your last ${runs.length} runs</div>`
-        +runs.map(r=>`<div class="hr"><span>${esc(fullDate(r.created_at))}${r.mult?' &middot; ball &times;'+r.mult:''}</span><b>${r.score}</b></div>`).join('')
-        +`</div>`:'');
+      +(own&&histOpen?histBlock(runs):'');
   }).join('');
   html+='</div>';
   if(list.length>BOARD_COLLAPSED)
     html+=`<button class="bmore">${showAll?'Show less':'Show all '+list.length}</button>`;
   html+=rankLine(all,mine);
+  if(runs.length>1&&!shown.some(s=>s.name===myName))html+=histBlock(runs,true);
   board.innerHTML=html;
 }
 board.addEventListener('click',e=>{
