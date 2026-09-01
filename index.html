@@ -687,7 +687,7 @@ function renderBoard(mine){
       +`<span class="dt${mc}${oc}" title="${esc(fullDate(s.created_at))}">${shortDate(s.created_at)}</span>`
       +`<span class="sc${mc}${oc}">${s.score}</span>`
       +(own&&histOpen?`<div class="hist"><div class="hl">Your last ${runs.length} runs</div>`
-        +runs.map(r=>`<div class="hr"><span>${esc(fullDate(r.created_at))}</span><b>${r.score}</b></div>`).join('')
+        +runs.map(r=>`<div class="hr"><span>${esc(fullDate(r.created_at))}${r.mult?' &middot; ball &times;'+r.mult:''}</span><b>${r.score}</b></div>`).join('')
         +`</div>`:'');
   }).join('');
   html+='</div>';
