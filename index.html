@@ -90,7 +90,8 @@
   #nameEntry{margin:14px 0 2px;}
   #nameEntry .ne-label{color:#8fd6a0;font-size:13px;font-weight:700;letter-spacing:.04em;margin-bottom:7px;}
   #nameEntry .ne-row{display:flex;gap:8px;justify-content:center;}
-  #nameInput{padding:10px 12px;font-size:15px;border-radius:9px;border:1px solid #33455f;
+  #nameInput{padding:10px 12px;font-size:19px;border-radius:9px;border:1px solid #33455f;
+    text-transform:uppercase;letter-spacing:.22em;text-align:center;font-weight:800;width:7.2em;
     background:#0b1220;color:#e8edf4;width:150px;outline:none;}
   #nameInput:focus{border-color:#5fb0ff;}
   #saveBtn{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:9px;
@@ -113,7 +114,7 @@
   #board .me{background:rgba(95,176,255,.16);}
   #board .rk{font-weight:800;color:#5c6a80;}
   #board .rk.r1{color:#f5c451;}#board .rk.r2{color:#cfd8e4;}#board .rk.r3{color:#dc9160;}
-  #board .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c4cedd;}
+  #board .nm{text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c4cedd;}
   #board .dt{font-size:11px;color:#5f6d82;white-space:nowrap;}
   #board .sc{font-weight:800;color:#e6edf6;white-space:nowrap;}
   #board .empty{color:#6b788c;font-size:13px;padding:10px;text-align:center;}
@@ -482,7 +483,7 @@
   <div id="nameEntry" class="hidden">
     <div class="ne-label">&#9733; You made the leaderboard</div>
     <div class="ne-row">
-      <input id="nameInput" maxlength="14" placeholder="Your name" autocomplete="off" spellcheck="false">
+      <input id="nameInput" maxlength="6" placeholder="AAA" autocomplete="off" spellcheck="false" autocapitalize="characters" autocorrect="off" inputmode="text" aria-label="Your initials, up to 6 letters or numbers">
       <button id="saveBtn">Save</button>
     </div>
   </div>
@@ -575,14 +576,20 @@ const shortDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':
 const fullDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':shortDate(iso)+' '+pad2(d.getHours())+':'+pad2(d.getMinutes());};
 const loadLocal=()=>{try{return JSON.parse(localStorage.getItem('breakin-scores'))||[];}catch(e){return[];}};
 const saveLocal=l=>{try{localStorage.setItem('breakin-scores',JSON.stringify(l.slice(0,MAXBOARD)));}catch(e){}};
-const loadName=()=>{try{return localStorage.getItem('breakin-name')||'';}catch(e){return'';}};
+// Arcade rule: a name is up to 6 characters, capitals and digits only. Applied on the way in AND
+// on the way out, so a long mixed-case name saved before this becomes a legal one instead of sticking.
+const cleanName=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+const loadName=()=>{try{return cleanName(localStorage.getItem('breakin-name'));}catch(e){return'';}};
 const loadBest=()=>{try{return +localStorage.getItem('breakin-best')||0;}catch(e){return 0;}};
 // A player who just hits Save used to land on the board as "PLAYER", so most rows shared one name
 // and nobody could spot their own score. Suggest a distinct name instead of a shared default.
 // ponytail: two short word lists, no storage and no server — collisions are rare enough not to matter
 const NAME_A=['BRISK','CALM','ODD','NEON','LUCKY','SLY','BOLD','TINY','VAST','GRIM','WIRED','ZESTY','LOOSE','SHARP'];
-const NAME_B=['OTTER','COMET','FOX','MOTH','RAVEN','TIGER','BADGER','HAWK','LYNX','CRANE','MOLE','WASP','KOI','YAK'];
-const randomName=()=>{const p=a=>a[Math.floor(Math.random()*a.length)];return p(NAME_A)+' '+p(NAME_B);};
+const NAME_B=['OTTER','COMET','FOX','MOTH','RAVEN','TIGER','HAWK','LYNX','CRANE','MOLE','WASP','KOI','YAK'];
+// One word plus a digit — fits the 6-character rule and still gives ~270 distinct suggestions, so
+// a player can find their own row. A bare 'AAA' default would put half the board under one name.
+const NAME_ALL=NAME_A.concat(NAME_B).filter(w=>w.length<=5);
+const randomName=()=>NAME_ALL[Math.floor(Math.random()*NAME_ALL.length)]+Math.floor(Math.random()*10);
 const saveBest=n=>{try{localStorage.setItem('breakin-best',n);}catch(e){}};
 
 let remoteBoard=null;        // array once the shared board loads this session; null = offline / not configured
@@ -718,7 +725,7 @@ function qualifies(score){
 
 async function commitPending(){
   if(!pendingScore)return null;
-  const name=((nameInput.value||loadName()||randomName()).trim().slice(0,14))||randomName();
+  const name=cleanName(nameInput.value)||loadName()||randomName();
   try{localStorage.setItem('breakin-name',name);}catch(e){}
   const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,
     mult:pendingScore.mult,created_at:new Date().toISOString()};
@@ -730,6 +737,10 @@ async function commitPending(){
 }
 saveBtn.addEventListener('click',async()=>{nameEntry.classList.add('hidden');await commitPending();});
 nameInput.addEventListener('focus',()=>nameInput.select());   // one tap to replace the suggestion
+nameInput.addEventListener('input',()=>{                      // caps + alphanumeric as you type, on every keyboard
+  const c=cleanName(nameInput.value);
+  if(c!==nameInput.value)nameInput.value=c;
+});
 nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveBtn.click();}});
 
 // ---- hidden admin: open via #admin in the URL, or 5 quick taps on the badge. ----
@@ -2032,6 +2043,13 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     'a higher score still beats a faster time');
   console.assert(order([{tag:'timed',score:100,secs:90},{tag:'untimed',score:100}])==='timed,untimed',
     'a run with no recorded time never outranks one that has it');
+
+  console.assert(cleanName('sharp wasp')==='SHARPW','a name is capitals only, no spaces, 6 max');
+  console.assert(cleanName('Lok')==='LOK','short names survive intact');
+  console.assert(cleanName('  a-b_c!d@e#f$g ')==='ABCDEF','punctuation is dropped, not substituted');
+  console.assert(cleanName('')===''&&cleanName(null)==='','empty stays empty so the fallback can fire');
+  console.assert(NAME_ALL.every(w=>w.length<=5)&&randomName().length<=6&&/^[A-Z0-9]+$/.test(randomName()),
+    'every suggested name is itself a legal name');
 })();
 </script>
 </body>
