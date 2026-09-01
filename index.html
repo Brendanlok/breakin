@@ -1179,13 +1179,19 @@ function startPlay(){
   maybeShowPtip();
 }
 
-// nudge the pause gesture once per player — tap the top on mobile, Esc on a keyboard
+// nudge the controls once per player — how to move, then how to pause
 const ptip=document.getElementById('ptip');
 function maybeShowPtip(){
   if(versus)return;
-  const key=isTouch?'breakin-ptip':'breakin-ptip-kb';
-  try{if(localStorage.getItem(key))return;localStorage.setItem(key,'1');}catch(e){}
-  ptip.textContent=isTouch?'tap the top to pause':'press Esc to pause';
+  // one tip per run, in order of need. On a keyboard nothing on screen says how to move, so that
+  // comes first and pause waits for run two. Touch already shows the arrows, so it only needs pause.
+  const tips=isTouch?[['breakin-ptip','tap the top to pause']]
+                    :[['breakin-ptip-move','move with ← → or A D'],['breakin-ptip-kb','press Esc to pause']];
+  let tip=null;
+  try{tip=tips.find(t=>!localStorage.getItem(t[0]));}catch(e){}   // storage blocked: show nothing rather than every run
+  if(!tip)return;
+  try{localStorage.setItem(tip[0],'1');}catch(e){}
+  ptip.textContent=tip[1];
   ptip.classList.remove('hidden');void ptip.offsetWidth;ptip.classList.add('show');   // reflow, not rAF — the fade still runs when the tab throttles rAF
   setTimeout(()=>{ptip.classList.remove('show');setTimeout(()=>ptip.classList.add('hidden'),600);},2800);
 }
