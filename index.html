@@ -633,15 +633,20 @@ function reportError(msg,stack){
 addEventListener('error',e=>reportError(e.message,e.error&&e.error.stack));
 addEventListener('unhandledrejection',e=>reportError('unhandledrejection: '+(e.reason&&e.reason.message||e.reason),e.reason&&e.reason.stack));
 
+// Ranking: highest score first, and a tie goes to whoever got there in less time. A row with no
+// recorded time never outranks one that has it, so old scores sort last inside their own tie.
+const secsOf=s=>typeof s.secs==='number'?s.secs:Infinity;
+const rankCmp=(a,b)=>b.score-a.score||secsOf(a)-secsOf(b);
+
 // One row per player: a board where a single name holds every slot tells you nothing about
-// how you rank. Rows arrive score-desc, so the first time a name appears is that name's best.
+// how you rank. Rows arrive best-first, so the first time a name appears is that name's best run.
 // ponytail: dedupe by name, so two players who drew the same random name share a row. 196 name
 // combos, so it is rare, and a readable board is worth more than that edge case.
 function bestPerName(list){
   const seen=new Set();
   return list.filter(s=>{const k=s.name;if(seen.has(k))return false;seen.add(k);return true;});
 }
-const currentBoard=()=>bestPerName((remoteBoard||loadLocal()).slice().sort((a,b)=>b.score-a.score));
+const currentBoard=()=>bestPerName((remoteBoard||loadLocal()).slice().sort(rankCmp));
 
 // One quiet line under the board: where you stand, and how big the field is. Without it a
 // three-row board reads as broken rather than as a young game, and anyone outside the top 10
@@ -688,7 +693,7 @@ function renderBoard(mine){
     const cv=own?`<span class="cv">${histOpen?'▲':'▼'}</span>`:'';
     return `<span class="rk${rk}${mc}${oc}">${i+1}</span>`
       +`<span class="nm${mc}${oc}">${esc(s.name)}${cv}</span>`
-      +`<span class="dt${mc}${oc}" title="${esc(fullDate(s.created_at))}">${shortDate(s.created_at)}</span>`
+      +`<span class="dt${mc}${oc}" title="${esc(fullDate(s.created_at))}${typeof s.secs==='number'?' · '+s.secs+'s':''}">${shortDate(s.created_at)}</span>`
       +`<span class="sc${mc}${oc}">${s.score}</span>`
       +(own&&histOpen?histBlock(runs):'');
   }).join('');
@@ -719,7 +724,7 @@ async function commitPending(){
   const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,
     mult:pendingScore.mult,created_at:new Date().toISOString()};
   pendingScore=null;
-  const loc=loadLocal();loc.push(entry);loc.sort((a,b)=>b.score-a.score);saveLocal(loc);   // always keep a local copy
+  const loc=loadLocal();loc.push(entry);loc.sort(rankCmp);saveLocal(loc);   // always keep a local copy
   if(lbOn()){await lbSubmit(entry);await refreshBoard();}
   renderBoard(entry);
   return entry;
@@ -2008,6 +2013,14 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     if(Math.max(Math.abs(dr),Math.abs(dc))===1)ring.add(dr+','+dc);
   console.assert(ring.size===8&&ring.has('1,0')&&ring.has('-1,-1')&&!ring.has('0,0'),
     'unstick ring visits all 8 neighbours, never the centre');
+
+  const order=l=>l.slice().sort(rankCmp).map(s=>s.tag).join(',');
+  console.assert(order([{tag:'slow',score:100,secs:90},{tag:'fast',score:100,secs:40}])==='fast,slow',
+    'same score: the faster run ranks higher');
+  console.assert(order([{tag:'low',score:50,secs:5},{tag:'high',score:100,secs:900}])==='high,low',
+    'a higher score still beats a faster time');
+  console.assert(order([{tag:'timed',score:100,secs:90},{tag:'untimed',score:100}])==='timed,untimed',
+    'a run with no recorded time never outranks one that has it');
 })();
 </script>
 </body>
