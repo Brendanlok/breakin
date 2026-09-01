@@ -598,7 +598,7 @@ async function refreshBoard(){remoteBoard=await lbFetch();boardLoading=false;ren
 // ---- best-effort crash + feedback reporting (Supabase, anon-insert only) ----
 const REST=LB_URL.replace(/\/breakin_scores$/,'');
 function post(table,body){
-  if(!lbOn())return;
+  if(!lbOn()||location.protocol!=='https:')return;   // file:// and data: dev runs must not land in the live inbox
   try{fetch(REST+'/'+table,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
     body:JSON.stringify(body)}).catch(()=>{});}catch(e){}
 }
@@ -824,7 +824,7 @@ document.getElementById('fbSend').addEventListener('click',()=>{
 const COLS=11;
 const ROWS=19;                        // grid is always 11 x 19 — identical cell count on phone and desktop; only the pixel size of a cell changes
 let W,H,cell,rows,spawnMaxRow;
-let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,lastT,elapsed=0;
+let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,dryMs,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
@@ -993,7 +993,7 @@ function reset(){
   grid=newGrid();                    // starts completely empty
   flashes.length=0;
   paddle={w:Math.max(52,cell*2.6),x:W/2};
-  placed=0;elapsed=0;noPlace=0;pending=null;   // one life — a miss ends the game
+  placed=0;elapsed=0;noPlace=0;dryMs=0;pending=null;   // one life — a miss ends the game
   empties=spawnMaxRow*COLS;
   resetBall();
   over=false;
@@ -1022,7 +1022,7 @@ function resolvePending(){
   const {r,c}=pending;
   if(grid[r][c]){pending=null;return;}
   if(!ballInCell(r,c)){                                 // NEVER drop a block onto the ball
-    grid[r][c]=1;placed++;empties--;noPlace=0;pending=null;
+    grid[r][c]=1;placed++;empties--;noPlace=0;dryMs=0;pending=null;
     flashes.push({r,c,t:performance.now()});            // pop on the cell that just turned solid
     ball.speed=Math.min(ball.base*1.9,ball.base*(1+placed*0.012));
     setSpeed();
@@ -1289,6 +1289,7 @@ function step(dt){
   }
   resolvePending();
   unstick();
+  if(!over&&(dryMs+=dt)>10000)endGame('No new blocks');   // rallying but building nothing — the run is dead, end it
   if(!over){                                      // trapped in one spot for >2s = walled off
     if(ball.y>paddleY()-cell*3){                   // near the paddle -> the player can still act on it, never "stuck"
       stuckMs=0;stuckX=ball.x;stuckY=ball.y;
@@ -1333,7 +1334,7 @@ function draw(){
   ctx.arcTo(px+pw,py,px+pw,py+ph,rr);ctx.arcTo(px+pw,py+ph,px,py+ph,rr);
   ctx.arcTo(px,py+ph,px,py,rr);ctx.arcTo(px,py,px+pw,py,rr);ctx.closePath();ctx.fill();
   // the ball heats toward red and a ring closes over it while a timeout ending is counting down
-  const dgr=Math.max(0,Math.min(1,Math.max((stuckMs-800)/1200,(noPlace-24)/16)));
+  const dgr=Math.max(0,Math.min(1,Math.max((stuckMs-800)/1200,(noPlace-24)/16,(dryMs-7000)/3000)));
   ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
   ctx.fillStyle=dgr>0?`rgb(255,${Math.round(255-185*dgr)},${Math.round(255-195*dgr)})`:'#fff';
   if(alive||dgr>0){ctx.shadowColor=dgr>0?`rgba(255,${Math.round(190-125*dgr)},60,.95)`:'rgba(130,185,255,.95)';ctx.shadowBlur=18+16*dgr;}
