@@ -597,7 +597,8 @@ const LB_LIMIT=300;
 async function lbFetch(){
   if(!lbOn())return null;
   try{
-    const r=await fetch(LB_URL+'?select=name,score,created_at&order=score.desc,created_at.asc&limit='+LB_LIMIT,{headers:{apikey:LB_KEY}});
+    // secs comes back too: the board ranks a tie by who got there faster
+    const r=await fetch(LB_URL+'?select=name,score,secs,created_at&order=score.desc,secs.asc,created_at.asc&limit='+LB_LIMIT,{headers:{apikey:LB_KEY}});
     return r.ok?await r.json():null;
   }catch(e){return null;}
 }
