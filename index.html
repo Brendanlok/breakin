@@ -553,6 +553,8 @@ const LB_URL='https://ekcnpuwclkjnqnntlvot.supabase.co/rest/v1/breakin_scores';
 const LB_KEY='sb_publishable_pfng2gwF0IdAZfwbwhWPWQ_bfHOMIAC';  // Supabase publishable key — public by design, table is RLS-guarded
 const RPC_URL=LB_URL.replace(/\/[^/]+$/,'/rpc/breakin_admin');
 const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20;
+// ponytail: ?dev=1 (or #dev) reads the live board but writes nothing - lets a test session play the deployed build without posting scores or crash reports.
+const DEV=/[?&#]dev(=1|\b)/.test(location.href);
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pad2=n=>String(n).padStart(2,'0');
@@ -584,7 +586,7 @@ async function lbFetch(){
   }catch(e){return null;}
 }
 async function lbSubmit(e){
-  if(!lbOn())return false;
+  if(!lbOn()||DEV)return false;
   const core={name:e.name,score:e.score,secs:e.secs,blocks:e.blocks};
   const send=b=>fetch(LB_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(b)});
   try{
@@ -598,7 +600,7 @@ async function refreshBoard(){remoteBoard=await lbFetch();boardLoading=false;ren
 // ---- best-effort crash + feedback reporting (Supabase, anon-insert only) ----
 const REST=LB_URL.replace(/\/breakin_scores$/,'');
 function post(table,body){
-  if(!lbOn()||location.protocol!=='https:')return;   // file:// and data: dev runs must not land in the live inbox
+  if(!lbOn()||DEV||location.protocol!=='https:')return;   // file:// and data: dev runs must not land in the live inbox
   try{fetch(REST+'/'+table,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
     body:JSON.stringify(body)}).catch(()=>{});}catch(e){}
 }
@@ -619,7 +621,7 @@ const currentBoard=()=>remoteBoard||loadLocal();
 
 function renderBoard(mine){
   const list=currentBoard().slice(0,MAXBOARD);
-  const tag=!lbOn()?' &middot; this device':(remoteBoard||boardLoading?'':' &middot; offline');
+  const tag=DEV?' &middot; dev mode, scores not saved':!lbOn()?' &middot; this device':(remoteBoard||boardLoading?'':' &middot; offline');
   let html='<div class="bt">Leaderboard'+tag+'</div>';
   if(!list.length){board.innerHTML=html+'<div class="empty">'
     +(boardLoading?'Loading scores&hellip;':'No scores yet &mdash; play to claim #1.')+'</div>';return;}
