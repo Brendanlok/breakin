@@ -254,7 +254,8 @@
     text-decoration:underline;padding:4px;border-radius:0;}
   #compete .ccode{font-size:30px;font-weight:800;letter-spacing:.12em;color:#eaf2ff;
     font-variant-numeric:tabular-nums;padding:4px 0;text-shadow:0 0 24px rgba(95,176,255,.4);}
-  #cQR{width:150px;height:150px;border-radius:10px;background:#f4f7fb;}
+  #cQR{width:150px;height:150px;border-radius:10px;background:#f4f7fb;
+    display:block;margin:2px auto 12px;}   /* block + auto margins: centred whatever the parent does, and clear of the Copy button */
   #compete .cnote{font-size:11.5px;line-height:1.5;color:#6b7a90;background:rgba(120,150,200,.07);
     border-radius:9px;padding:9px 11px;}
   #compete .cnote:empty{display:none;}
@@ -1582,6 +1583,7 @@ function vsCleanup(keepRoom){
   hudOpp.classList.add('hidden');vsCd.classList.add('hidden');cRematchPanel.classList.add('hidden');
 }
 function closeCompete(){
+  stopAbortCountdown();
   compete.classList.add('hidden');
   cJoinErr.textContent='';cJoinErr.classList.remove('ok');
   vsCleanup();
@@ -1945,6 +1947,10 @@ function hostRematch(){
   cInviteStatus.textContent='Waiting for someone to join...';
   showCView('invite');
 }
+// The other player leaving used to drop you on a dead result screen until you pressed Exit.
+// Say what happened, count down, then take yourself back to the menu.
+let abortT=0;
+function stopAbortCountdown(){if(abortT){clearInterval(abortT);abortT=0;}}
 function vsAbort(){
   const wasVersus=versus;
   vsCleanup(true);
@@ -1953,7 +1959,13 @@ function vsAbort(){
     cRematch.classList.add('hidden');cResultWait.classList.add('hidden');cArenas.classList.add('hidden');
     cResultTitle.classList.remove('win','lose','tie');
     cResultTitle.textContent='The other player left';
-    cResultScore.textContent='';
+    let n=3;
+    cResultScore.textContent='Back to the menu in '+n;
+    stopAbortCountdown();
+    abortT=setInterval(()=>{
+      if(--n<=0){stopAbortCountdown();closeCompete();return;}   // 3, 2, 1, gone
+      cResultScore.textContent='Back to the menu in '+n;
+    },1000);
   }
 }
 
