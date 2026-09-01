@@ -471,7 +471,7 @@
 <div id="overlay">
   <div class="badge" id="badge">Breakout, in reverse</div>
   <h1>BREAKIN</h1>
-  <p id="msg">The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.</p>
+  <p id="msg">The ball builds walls instead of breaking them. Every bounce off the arena leaves a block behind &mdash; survive as the space closes in.</p>
   <div id="goStats" class="hidden">
     <div class="gostat st-time"><b id="goTime">0</b><i>time</i></div>
     <div class="gostat st-blocks"><b id="goBlk">0</b><i>blocks</i></div>
@@ -1158,7 +1158,7 @@ function startAttract(){                   // demo playing behind the menu
   nameEntry.classList.add('hidden');
   badgeEl.textContent='Breakout, in reverse';
   titleEl.textContent='BREAKIN';
-  msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce leaves a block behind &mdash; survive as the space closes in.'
+  msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce off the arena leaves a block behind &mdash; survive as the space closes in.'
     +(loadBest()>0?`<br><span style="color:#7f8ca0;font-size:13px">Your best <b style="color:#ffd25f">${loadBest()}</b></span>`:'');
   goStats.classList.add('hidden');goSub.classList.add('hidden');overlay.classList.remove('gameover');
   startBtn.querySelector('.lbl').textContent='Play solo';
@@ -1315,7 +1315,7 @@ function step(dt){
     const px=ball.x,py=ball.y;
     ball.x+=sx;ball.y+=sy;
 
-    let wall=false,hit=false;
+    let wall=false,hit=false,padHit=false;
     if(ball.x-ball.r<0){ball.x=ball.r;ball.vx=Math.abs(ball.vx);wall=true;}
     if(ball.x+ball.r>W){ball.x=W-ball.r;ball.vx=-Math.abs(ball.vx);wall=true;}
     if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy);wall=true;}
@@ -1340,12 +1340,10 @@ function step(dt){
       setSpeed();
       ball.y=pyv-ball.r-1;
       noPlace=0;stuckMs=0;                    // ball still reaches the paddle — not boxed in
-      hit=true;sfx('paddle');
-      const pc=Math.floor(ball.x/cell), pr=spawnMaxRow-1;   // every paddle bounce crusts the row just above it — otherwise a vertical rally places nothing
-      if(pc>=0&&pc<COLS&&pr>=0&&!grid[pr][pc]&&!(pending&&pending.r===pr&&pending.c===pc))pending={r:pr,c:pc,age:0};
+      padHit=true;sfx('paddle');              // NOT hit: the paddle is the player, not a wall — it never crusts a cell
     }
 
-    if(hit)bounce();
+    if(hit&&!padHit)bounce();                 // a paddle touch builds nothing, even if a wall was clipped in the same step
     if(over)return;
 
     if(ball.y-ball.r>H){endGame('Missed the ball');return;}   // one life — a miss ends it (attract restarts the demo)
