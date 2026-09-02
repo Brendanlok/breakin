@@ -973,6 +973,14 @@ const ROWS=19;                        // grid is always 11 x 19 — identical ce
 let W,H,cell,rows,spawnMaxRow;
 let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,dryMs,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
+// ---- ghost of your own best run (this device only, never uploaded) ----
+// Each block your best run claimed reappears as a faint outline at the moment that run
+// claimed it, so mid-game you can see whether you are ahead of your own pace.
+// ponytail: one key per speed. A x5 ghost racing a x1 run would be nonsense, and separate
+// keys are less code than carrying a mult around and comparing it.
+let runLog=[],ghost=null;                    // runLog: flat [cellIndex, msSincePlacement...] in time order
+const ghostKey=()=>'breakin-ghost-'+mult;
+const loadGhost=()=>{try{const g=JSON.parse(localStorage.getItem(ghostKey()));return g&&Array.isArray(g.l)&&g.l.length?g:null;}catch(e){return null;}};   // storage can hold anything, incl. an older format
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 let lastFrameAt=0,lastFrameT=-1;   // when the loop last actually drew — the watchdog reads these
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
@@ -1143,6 +1151,7 @@ function reset(){
   flashes.length=0;
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;dryMs=0;pending=null;   // one life — a miss ends the game
+  runLog=[];ghost=loadGhost();       // drawn only while mode==='play' — the demo arena stays clean
   saveFailed=false;
   empties=spawnMaxRow*COLS;
   resetBall();
@@ -1173,6 +1182,7 @@ function resolvePending(){
   if(grid[r][c]){pending=null;return;}
   if(!ballInCell(r,c)){                                 // NEVER drop a block onto the ball
     grid[r][c]=1;placed++;empties--;noPlace=0;dryMs=0;pending=null;
+    if(mode==='play'&&!versus)runLog.push(r*COLS+c,Math.round(elapsed*1000));   // pace record for the ghost
     flashes.push({r,c,t:performance.now()});            // pop on the cell that just turned solid
     // the whole hook is that the ball BUILDS. On a phone the attract demo is hidden behind the menu,
     // so this first block is the first time a new player can actually see it happen. Say it once.
@@ -1229,6 +1239,8 @@ function endGame(reason){
     +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`
       :bestShown>0?` &nbsp;&middot;&nbsp; best ${bestShown}`:'');
   goSub.classList.remove('hidden');
+  const gPrev=loadGhost();                 // keep the ghost of the most blocks placed at THIS speed
+  if(blk>0&&(!gPrev||blk>gPrev.b)){try{localStorage.setItem(ghostKey(),JSON.stringify({b:blk,l:runLog}));}catch(e){}}
   lastRun=score>0?{score,blocks:blk,mult}:null;   // a 0-block run is nothing to brag about
   shareBtn.classList.toggle('hidden',!lastRun);
   shareOut.classList.add('hidden');
@@ -1485,6 +1497,15 @@ function draw(){
   ctx.strokeStyle=alive?'rgba(140,175,235,.22)':'rgba(120,150,200,.06)';ctx.lineWidth=1;
   for(let c=1;c<COLS;c++){ctx.beginPath();ctx.moveTo(c*cell,0);ctx.lineTo(c*cell,H);ctx.stroke();}
   for(let r=1;r<rows;r++){ctx.beginPath();ctx.moveTo(0,r*cell);ctx.lineTo(W,r*cell);ctx.stroke();}
+  if(ghost&&mode==='play'&&!versus){      // your best run's pace, under the real blocks
+    const tms=elapsed*1000,L=ghost.l;
+    ctx.strokeStyle='rgba(150,182,240,.32)';ctx.lineWidth=1;
+    for(let i=0;i<L.length;i+=2){
+      if(L[i+1]>tms)break;                 // time-ordered — everything after this is still in the ghost's future
+      const r=(L[i]/COLS)|0,c=L[i]%COLS;
+      if(r<rows&&!grid[r][c])ctx.strokeRect(c*cell+2.5,r*cell+2.5,cell-5,cell-5);   // r<rows: a ghost recorded on a taller screen
+    }
+  }
   for(let r=0;r<rows;r++)for(let c=0;c<COLS;c++){
     if(!grid[r][c])continue;
     ctx.fillStyle=`hsl(${(r*9+c*4+205)%360} ${alive?70:60}% ${alive?62:55}%)`;
