@@ -1404,7 +1404,12 @@ function beginResume(){
   showPausePanel('count');
 }
 function nudgeResume(){                    // one tap / one press = one second off; three clear it
-  if(resumeIn>0)resumeIn-=1000;            // frame() redraws the number and calls endResume at zero
+  if(resumeIn<=0)return;
+  resumeIn-=1000;
+  // End it here, not in frame(): the countdown branch there only runs while resumeIn>0, so a tap
+  // that lands exactly on zero skips it entirely - the ball resumed while the overlay stayed up
+  // showing 1, because the number is floored at 1 and endResume() was never reached.
+  if(resumeIn<=0)endResume();
 }
 function endResume(){
   resumeIn=0;heldDir=0;held.clear();
