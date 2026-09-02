@@ -422,7 +422,7 @@
   </div>
   <div class="pcount hidden" id="pCount">
     <span id="pNum">3</span>
-    <span class="psub">space to skip</span>
+    <span class="psub" id="pSkip"></span>
   </div>
 </div>
 <div id="fb" class="hidden">
@@ -1018,14 +1018,6 @@ const ROWS=19;                        // grid is always 11 x 19 — identical ce
 let W,H,cell,rows,spawnMaxRow;
 let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,dryMs,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
-// ---- ghost of your own best run (this device only, never uploaded) ----
-// Each block your best run claimed reappears as a faint outline at the moment that run
-// claimed it, so mid-game you can see whether you are ahead of your own pace.
-// ponytail: one key per speed. A x5 ghost racing a x1 run would be nonsense, and separate
-// keys are less code than carrying a mult around and comparing it.
-let runLog=[],ghost=null;                    // runLog: flat [cellIndex, msSincePlacement...] in time order
-const ghostKey=()=>'breakin-ghost-'+mult;
-const loadGhost=()=>{try{const g=JSON.parse(localStorage.getItem(ghostKey()));return g&&Array.isArray(g.l)&&g.l.length?g:null;}catch(e){return null;}};   // storage can hold anything, incl. an older format
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 let lastFrameAt=0,lastFrameT=-1;   // when the loop last actually drew — the watchdog reads these
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
@@ -1047,7 +1039,12 @@ function fit(){
   }
   placeChase();                       // fit() is the one place geometry changes — keep the side panel with it
 }
-addEventListener('resize',()=>{fit();if(ball&&mode!=='play')draw();});
+// Never re-fit mid-run. cell/W/H feed the paddle width, the ball speed and every block
+// position, and nothing rescales the live ones - so a resize during play left the paddle
+// at its old width in a differently-sized arena. iOS fires resize constantly as Safari's
+// URL bar slides, which is why the phone drifted away from the desktop and the desktop
+// never did. startPlay/reset call fit() first, so the next run picks up any new size.
+addEventListener('resize',()=>{if(mode==='play')return;fit();if(ball)draw();});
 fit();
 
 // Ball speed / score multiplier — set on the menu only, locked once a game starts.
@@ -1104,6 +1101,12 @@ if(isTouch){
     el.addEventListener('pointerup',clr);
     el.addEventListener('pointerleave',clr);
     el.addEventListener('pointercancel',clr);
+    // This is where a player taps fastest, so it is where the double-tap zoom kept firing.
+    // Drive the paddle off the touch stream too and cancel the gesture; setting heldDir to
+    // the same value twice is harmless, and the control can never be left dead.
+    el.addEventListener('touchstart',e=>{e.preventDefault();heldDir=+el.dataset.d;},{passive:false});
+    el.addEventListener('touchend',e=>{e.preventDefault();clr();},{passive:false});
+    el.addEventListener('touchcancel',clr);
   });
 }
 // ---- sound: tiny WebAudio blips, no assets, no files. Silent behind the start menu. ----
@@ -1196,7 +1199,6 @@ function reset(){
   flashes.length=0;
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;dryMs=0;pending=null;   // one life — a miss ends the game
-  runLog=[];ghost=loadGhost();       // drawn only while mode==='play' — the demo arena stays clean
   saveFailed=false;
   empties=spawnMaxRow*COLS;
   resetBall();
@@ -1227,7 +1229,6 @@ function resolvePending(){
   if(grid[r][c]){pending=null;return;}
   if(!ballInCell(r,c)){                                 // NEVER drop a block onto the ball
     grid[r][c]=1;placed++;empties--;noPlace=0;dryMs=0;pending=null;
-    if(mode==='play'&&!versus)runLog.push(r*COLS+c,Math.round(elapsed*1000));   // pace record for the ghost
     flashes.push({r,c,t:performance.now()});            // pop on the cell that just turned solid
     // the whole hook is that the ball BUILDS. On a phone the attract demo is hidden behind the menu,
     // so this first block is the first time a new player can actually see it happen. Say it once.
@@ -1284,8 +1285,6 @@ function endGame(reason){
     +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`
       :bestShown>0?` &nbsp;&middot;&nbsp; best ${bestShown}`:'');
   goSub.classList.remove('hidden');
-  const gPrev=loadGhost();                 // keep the ghost of the most blocks placed at THIS speed
-  if(blk>0&&(!gPrev||blk>gPrev.b)){try{localStorage.setItem(ghostKey(),JSON.stringify({b:blk,l:runLog}));}catch(e){}}
   lastRun=score>0?{score,blocks:blk,mult}:null;   // a 0-block run is nothing to brag about
   shareBtn.classList.toggle('hidden',!lastRun);
   shareOut.classList.add('hidden');
@@ -1398,6 +1397,9 @@ function beginResume(){
   pNum.textContent='3';
   showPausePanel('count');
 }
+function nudgeResume(){                    // one tap / one press = one second off; three clear it
+  if(resumeIn>0)resumeIn-=1000;            // frame() redraws the number and calls endResume at zero
+}
 function endResume(){
   resumeIn=0;heldDir=0;held.clear();
   pauseEl.classList.add('hidden');
@@ -1409,17 +1411,28 @@ function exitToMenu(){
   pauseEl.classList.add('hidden');
   startAttract();
 }
+document.getElementById('pSkip').textContent=isTouch?'tap to skip a second':'space to skip a second';
+pauseEl.addEventListener('touchstart',e=>{   // only the countdown takes taps — the pause menu has real buttons
+  if(resumeIn<=0)return;
+  e.preventDefault();nudgeResume();          // preventDefault: three fast taps here must not read as a zoom gesture
+},{passive:false});
+pauseEl.addEventListener('click',()=>{if(!isTouch)nudgeResume();});
 document.getElementById('pResume').addEventListener('click',beginResume);
 document.getElementById('pExit').addEventListener('click',askExit);
 document.getElementById('pQuit').addEventListener('click',exitToMenu);
 document.getElementById('pBack').addEventListener('click',cancelExit);
 
 // mobile: tap the upper half of the play area to pause (desktop uses Esc)
-canvas.addEventListener('pointerdown',e=>{
-  if(!isTouch||mode!=='play'||versus||paused||resumeIn>0)return;
+// The arena wants no native touch behaviour at all. Cancelling the touch outright is what
+// actually stops iOS Safari zooming on a double tap here - touch-action alone does not.
+canvas.addEventListener('touchstart',e=>{
+  if(mode!=='play')return;
+  e.preventDefault();
+  if(versus||paused||resumeIn>0)return;
+  const t=e.changedTouches[0];if(!t)return;
   const r=canvas.getBoundingClientRect();
-  if(e.clientY-r.top < r.height*0.5){e.preventDefault();pauseGame();}
-});
+  if(t.clientY-r.top < r.height*0.5)pauseGame();     // tap the top half to pause
+},{passive:false});
 
 const held=new Set();
 let adminSeq='';
@@ -1441,7 +1454,7 @@ addEventListener('keydown',e=>{
     return;
   }
   if(mode==='play'&&(paused||resumeIn>0)){              // during pause / countdown: space continues / skips
-    if(space){e.preventDefault();paused?beginResume():endResume();}
+    if(space){e.preventDefault();paused?beginResume():nudgeResume();}
     return;                                             // swallow all other keys while paused
   }
   if(mode!=='play'&&!typingInText()&&/^[a-z]$/.test(k)){ // type "admin" on the menu -> passphrase gate
@@ -1543,15 +1556,6 @@ function draw(){
   ctx.strokeStyle=alive?'rgba(140,175,235,.22)':'rgba(120,150,200,.06)';ctx.lineWidth=1;
   for(let c=1;c<COLS;c++){ctx.beginPath();ctx.moveTo(c*cell,0);ctx.lineTo(c*cell,H);ctx.stroke();}
   for(let r=1;r<rows;r++){ctx.beginPath();ctx.moveTo(0,r*cell);ctx.lineTo(W,r*cell);ctx.stroke();}
-  if(ghost&&mode==='play'&&!versus){      // your best run's pace, under the real blocks
-    const tms=elapsed*1000,L=ghost.l;
-    ctx.strokeStyle='rgba(150,182,240,.32)';ctx.lineWidth=1;
-    for(let i=0;i<L.length;i+=2){
-      if(L[i+1]>tms)break;                 // time-ordered — everything after this is still in the ghost's future
-      const r=(L[i]/COLS)|0,c=L[i]%COLS;
-      if(r<rows&&!grid[r][c])ctx.strokeRect(c*cell+2.5,r*cell+2.5,cell-5,cell-5);   // r<rows: a ghost recorded on a taller screen
-    }
-  }
   for(let r=0;r<rows;r++)for(let c=0;c<COLS;c++){
     if(!grid[r][c])continue;
     ctx.fillStyle=`hsl(${(r*9+c*4+205)%360} ${alive?70:60}% ${alive?62:55}%)`;
@@ -2202,7 +2206,7 @@ document.addEventListener('touchend',e=>{
   if(e.touches.length)return;                       // other fingers still down - not the end of a tap
   const t=e.changedTouches[0];if(!t)return;
   const now=Date.now();
-  if(now-tapT<=350&&Math.abs(t.clientX-tapX)<40&&Math.abs(t.clientY-tapY)<40)e.preventDefault();
+  if(now-tapT<=500&&Math.abs(t.clientX-tapX)<60&&Math.abs(t.clientY-tapY)<60)e.preventDefault();
   tapT=now;tapX=t.clientX;tapY=t.clientY;
 },{passive:false});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)return;kick();if(vs)vsTick();});
