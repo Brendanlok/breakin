@@ -1765,7 +1765,13 @@ function applyRoom(r){
 
   if(!vs)return;                            // the phase handlers above can end the match and null vs — everything below dereferences it
   if(versus||r.phase==='rematch'){
-    if(!vs.oppDone&&vs.oppSeen&&srvNow()-vs.oppSeen>15000)vs.oppDropped=true;
+    // live, not a latch: a phone that was backgrounded for 20s (a call, a notification)
+    // used to be branded LEFT for the rest of the match even after it came back.
+    if(!vs.oppDone&&vs.oppSeen){
+      const gone=srvNow()-vs.oppSeen>15000;
+      if(!gone&&vs.oppDropped)vs._dropSaid=false;   // they're back — let a real exit toast again
+      vs.oppDropped=gone;
+    }
     if(mode==='over')vsRenderResult();      // keep the result view live until the opponent's outcome settles
     else if(versus)vsRenderBar();
   }
@@ -2053,7 +2059,10 @@ compete.addEventListener('click',ev=>{if(ev.target===compete&&vsCd.classList.con
 // its own when the tab is shown; frame() clamps the catch-up dt. A visibilitychange
 // handler that flipped rafOn off here just added a way to freeze forever if the
 // "visible" event was ever missed (e.g. page loaded in a background tab). ponytail: rAF handles it.
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)kick();});
+// setInterval is throttled to ~1/min in a hidden tab, so a host who switches away to
+// paste the invite link comes back to a lobby that is up to a minute stale — and a
+// frozen heartbeat makes the other side call them dropped. Resync the moment we return.
+document.addEventListener('visibilitychange',()=>{if(document.hidden)return;kick();if(vs)vsTick();});
 
 boardLoading=lbOn();
 renderBoard();                             // draw the panel now — an unrendered #board is a styled empty rectangle
