@@ -140,6 +140,7 @@
   #board .hist .hr b{color:#c4cedd;font-weight:800;}
   #board .hist.solo{margin-top:9px;padding-top:2px;border-top:1px solid rgba(120,150,200,.16);}
   #board .brank{margin-top:9px;text-align:center;font-size:11.5px;color:#67788f;letter-spacing:.03em;}
+  #board .bwarn{margin-top:7px;text-align:center;font-size:11.5px;color:#ff9d8a;line-height:1.45;}
   #board .brank b{color:#c4cedd;font-weight:800;}
   #board .bmore{display:block;margin:8px auto 0;padding:6px 14px;font:inherit;font-size:11px;
     letter-spacing:.14em;text-transform:uppercase;color:#8b98ac;background:#141d2b;
@@ -247,6 +248,7 @@
   #fbSend{background:#5fb0ff;color:#05121f;}
   #fbClose{background:#1b2637;color:#cdd6e4;}
   #fbOut{font-size:12px;color:#8fd6a0;margin-top:8px;min-height:14px;}
+  #fbOut.bad{color:#ff9d8a;}
   #playRow{display:flex;flex-direction:column;align-items:center;gap:10px;margin:20px 0 6px;}
   #competeBtn{padding:11px 30px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
     color:#cdd6e4;background:#18222f;border:1px solid #2f3f57;border-radius:999px;cursor:pointer;}
@@ -608,6 +610,7 @@ let boardLoading=false;      // first shared-board fetch in flight — don't cla
 let pendingScore=null;
 let histOpen=false;          // player tapped their own row open to see their recent runs
 let boardExpanded=false;     // leaderboard shows top 5 until the player taps "show all" (keeps the game-over screen short on phones)
+let saveFailed=false;        // the last saved run never reached the shared board — say so under the board rather than silently keeping it local
 const BOARD_COLLAPSED=5;
 // ponytail: fetch enough rows that the "of N players" line below the board is an exact count.
 // Ceiling: past 300 saved scores it undercounts — switch to a server-side distinct-name count then.
@@ -635,10 +638,12 @@ async function refreshBoard(){remoteBoard=await lbFetch();boardLoading=false;ren
 
 // ---- best-effort crash + feedback reporting (Supabase, anon-insert only) ----
 const REST=LB_URL.replace(/\/breakin_scores$/,'');
+// Resolves true only if the row really reached the inbox. Anything that tells the player it
+// worked must await this — saying "sent" without checking is how a dead send looks like a live one.
 function post(table,body){
-  if(!lbOn()||DEV||location.protocol!=='https:')return;   // file:// and data: dev runs must not land in the live inbox
-  try{fetch(REST+'/'+table,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
-    body:JSON.stringify(body)}).catch(()=>{});}catch(e){}
+  if(!lbOn()||DEV||location.protocol!=='https:')return Promise.resolve(false);   // file:// and data: dev runs must not land in the live inbox
+  try{return fetch(REST+'/'+table,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+    body:JSON.stringify(body)}).then(r=>r.ok,()=>false);}catch(e){return Promise.resolve(false);}
 }
 let errCount=0,lastErrAt=0;
 function reportError(msg,stack){
@@ -718,6 +723,7 @@ function renderBoard(mine){
   if(list.length>BOARD_COLLAPSED)
     html+=`<button class="bmore">${showAll?'Show less':'Show all '+list.length}</button>`;
   html+=rankLine(all,mine);
+  if(saveFailed)html+='<div class="bwarn">Could not reach the leaderboard &mdash; this run is saved on this device only.</div>';
   if(runs.length>1&&!shown.some(s=>s.name===myName))html+=histBlock(runs,true);
   board.innerHTML=html;
 }
@@ -742,7 +748,8 @@ async function commitPending(){
     mult:pendingScore.mult,created_at:new Date().toISOString()};
   pendingScore=null;
   const loc=loadLocal();loc.push(entry);loc.sort(rankCmp);saveLocal(loc);   // always keep a local copy
-  if(lbOn()){await lbSubmit(entry);await refreshBoard();}
+  saveFailed=false;
+  if(lbOn()){saveFailed=!DEV&&!await lbSubmit(entry);await refreshBoard();}
   renderBoard(entry);
   return entry;
 }
@@ -895,11 +902,16 @@ const bumpGames=()=>{try{localStorage.setItem('breakin-games',gameCount()+1);}ca
 function openFb(){fb.classList.remove('hidden');fbMsg.focus();fbLink.classList.remove('nudge');fbLink.textContent='Send feedback';}
 fbLink.addEventListener('click',openFb);
 document.getElementById('fbClose').addEventListener('click',()=>fb.classList.add('hidden'));
-document.getElementById('fbSend').addEventListener('click',()=>{
+const fbSend=document.getElementById('fbSend');
+fbSend.addEventListener('click',async()=>{
   const m=fbMsg.value.trim();
-  if(!m){fbOut.textContent='write something first';return;}
-  post('breakin_feedback',{name:fbName.value.trim()||null,message:m.slice(0,2000),
+  if(!m){fbOut.classList.add('bad');fbOut.textContent='write something first';return;}
+  fbSend.disabled=true;fbOut.classList.remove('bad');fbOut.textContent='sending…';
+  const ok=await post('breakin_feedback',{name:fbName.value.trim()||null,message:m.slice(0,2000),
     meta:{games:gameCount(),ua:navigator.userAgent,w:innerWidth,h:innerHeight}});
+  fbSend.disabled=false;
+  if(!ok){                                  // keep the text so the player can just tap send again
+    fbOut.classList.add('bad');fbOut.textContent='could not send — check your connection and try again.';return;}
   fbMsg.value='';fbOut.textContent='thanks — sent.';
   setTimeout(()=>{fb.classList.add('hidden');fbOut.textContent='';},1200);
 });
@@ -1078,6 +1090,7 @@ function reset(){
   flashes.length=0;
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;dryMs=0;pending=null;   // one life — a miss ends the game
+  saveFailed=false;
   empties=spawnMaxRow*COLS;
   resetBall();
   over=false;
