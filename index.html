@@ -1171,6 +1171,11 @@ function resolvePending(){
   if(!ballInCell(r,c)){                                 // NEVER drop a block onto the ball
     grid[r][c]=1;placed++;empties--;noPlace=0;dryMs=0;pending=null;
     flashes.push({r,c,t:performance.now()});            // pop on the cell that just turned solid
+    // the whole hook is that the ball BUILDS. On a phone the attract demo is hidden behind the menu,
+    // so this first block is the first time a new player can actually see it happen. Say it once.
+    // ponytail: piggybacks on the existing #ptip nudge; a callout drawn at the cell would point
+    // better, but that is canvas text + fade to write and this reuses what already works.
+    if(placed===1&&mode==='play'&&!versus&&!seenTip(INV_TIP)){markTip(INV_TIP);showPtip('bounces build — blocks never break');}
     ball.speed=Math.min(ball.base*1.9,ball.base*(1+placed*0.012));
     setSpeed();
     if(empties<=0)endGame('Arena sealed');
@@ -1279,19 +1284,28 @@ function startPlay(){
 
 // nudge the controls once per player — how to move, then how to pause
 const ptip=document.getElementById('ptip');
+const INV_TIP='breakin-ptip-inv';
+function seenTip(k){try{return !!localStorage.getItem(k);}catch(e){return true;}}   // storage blocked: treat as seen, so no tip repeats every run
+function markTip(k){try{localStorage.setItem(k,'1');}catch(e){}}
+function showPtip(text){
+  ptip.textContent=text;
+  ptip.classList.remove('hidden');void ptip.offsetWidth;ptip.classList.add('show');   // reflow, not rAF — the fade still runs when the tab throttles rAF
+  setTimeout(()=>{ptip.classList.remove('show');setTimeout(()=>ptip.classList.add('hidden'),600);},2800);
+}
 function maybeShowPtip(){
   if(versus)return;
+  // The very first run belongs to the inversion lesson, which fires on the first placed block
+  // (see resolvePending) — one #ptip, so a control tip here would collide with it. Desktop still
+  // reads the controls off #chint on the menu, so nothing is lost by waiting a run.
+  if(!seenTip(INV_TIP))return;
   // one tip per run, in order of need. On a keyboard nothing on screen says how to move, so that
   // comes first and pause waits for run two. Touch already shows the arrows, so it only needs pause.
   const tips=isTouch?[['breakin-ptip','tap the top to pause']]
                     :[['breakin-ptip-move','move with ← → or A D'],['breakin-ptip-kb','press Esc to pause']];
-  let tip=null;
-  try{tip=tips.find(t=>!localStorage.getItem(t[0]));}catch(e){}   // storage blocked: show nothing rather than every run
+  const tip=tips.find(t=>!seenTip(t[0]));
   if(!tip)return;
-  try{localStorage.setItem(tip[0],'1');}catch(e){}
-  ptip.textContent=tip[1];
-  ptip.classList.remove('hidden');void ptip.offsetWidth;ptip.classList.add('show');   // reflow, not rAF — the fade still runs when the tab throttles rAF
-  setTimeout(()=>{ptip.classList.remove('show');setTimeout(()=>ptip.classList.add('hidden'),600);},2800);
+  markTip(tip[0]);
+  showPtip(tip[1]);
 }
 
 // ---- pause (Esc during a game) ----
