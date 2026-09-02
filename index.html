@@ -1423,6 +1423,8 @@ function exitToMenu(){
   startAttract();
 }
 document.getElementById('pSkip').textContent=isTouch?'tap to skip a second':'space to skip a second';
+// A phone has no Spacebar and no Esc - those hints are noise on the pause screen there.
+if(isTouch)document.querySelectorAll('#pause .phint').forEach(el=>{el.hidden=true;});
 pauseEl.addEventListener('touchstart',e=>{   // only the countdown takes taps — the pause menu has real buttons
   if(resumeIn<=0)return;
   e.preventDefault();nudgeResume();          // preventDefault: three fast taps here must not read as a zoom gesture
