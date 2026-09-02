@@ -235,6 +235,9 @@
     cursor:pointer;padding:4px;margin-top:12px;text-decoration:underline;}
   #homeLink{margin-top:14px;font-weight:700;color:#93a1b5;}
   #fbLink.nudge{color:#8fd6a0;text-decoration:none;font-weight:700;}
+  #shareBtn{margin:11px auto 0;padding:10px 22px;font-size:13.5px;font-weight:700;border-radius:999px;
+    cursor:pointer;color:#05121f;background:#ffd25f;border:1px solid #ffd25f;letter-spacing:.02em;}
+  #shareBtn.done{color:#cdd6e4;background:#152131;border-color:#2b3a52;}
   #fb{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
     background:rgba(4,7,11,.82);padding:20px;}
   #fb .fbpanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
@@ -493,6 +496,7 @@
     <div class="gostat st-score"><b id="goScore">0</b><i>score</i></div>
   </div>
   <div id="goSub" class="hidden"></div>
+  <button id="shareBtn" class="hidden">Share your score</button>
   <div id="nameEntry" class="hidden">
     <div class="ne-label">&#9733; You made the leaderboard</div>
     <div class="ne-row">
@@ -911,6 +915,23 @@ const fb=document.getElementById('fb');
 const fbLink=document.getElementById('fbLink');
 const homeLink=document.getElementById('homeLink');
 homeLink.addEventListener('click',()=>startAttract());   // game over -> back to the start screen
+// Share your score — one tap turns a finished run into a post. Native share sheet on mobile, clipboard on desktop.
+let lastRun=null;
+const shareBtn=document.getElementById('shareBtn');
+shareBtn.addEventListener('click',async()=>{
+  if(!lastRun)return;
+  const {score,blocks,mult}=lastRun;
+  const text=`Breakin — ${score} (${blocks} block${blocks===1?'':'s'} × ${mult} speed). Can you beat it?`;
+  const url=location.origin+location.pathname;
+  const say=t=>{shareBtn.textContent=t;shareBtn.classList.add('done');
+    setTimeout(()=>{shareBtn.textContent='Share your score';shareBtn.classList.remove('done');},1900);};
+  if(navigator.share){
+    try{await navigator.share({title:'Breakin',text,url});return;}
+    catch(e){if(e&&e.name==='AbortError')return;}   // they closed the sheet on purpose — don't silently copy instead
+  }
+  try{await navigator.clipboard.writeText(text+' '+url);say('Copied — paste it anywhere');}
+  catch(e){say('Could not copy — long-press to select');}
+});
 const fbName=document.getElementById('fbName');
 const fbMsg=document.getElementById('fbMsg');
 const fbOut=document.getElementById('fbOut');
@@ -1188,6 +1209,8 @@ function endGame(reason){
     +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`
       :bestShown>0?` &nbsp;&middot;&nbsp; best ${bestShown}`:'');
   goSub.classList.remove('hidden');
+  lastRun=score>0?{score,blocks:blk,mult}:null;   // a 0-block run is nothing to brag about
+  shareBtn.classList.toggle('hidden',!lastRun);
   startBtn.querySelector('.lbl').textContent='Play again';
   homeLink.classList.remove('hidden');
   overlay.classList.remove('hidden');overlay.scrollTop=0;   // land on GAME OVER + how you died, not wherever the menu was left scrolled
@@ -1218,6 +1241,7 @@ function startAttract(){                   // demo playing behind the menu
   msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce off the arena leaves a block behind &mdash; survive as the space closes in.'
     +(loadBest()>0?`<br><span style="color:#7f8ca0;font-size:13px">Your best <b style="color:#ffd25f">${loadBest()}</b></span>`:'');
   goStats.classList.add('hidden');goSub.classList.add('hidden');overlay.classList.remove('gameover');
+  shareBtn.classList.add('hidden');
   startBtn.querySelector('.lbl').textContent='Play solo';
   homeLink.classList.add('hidden');
   overlay.classList.remove('hidden');overlay.scrollTop=0;   // menu always opens at the title
