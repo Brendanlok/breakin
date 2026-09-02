@@ -939,6 +939,7 @@ shareBtn.addEventListener('click',async()=>{
   catch(e){                                  // embedded browsers block the clipboard — hand over the text instead of an apology
     shareOut.value=full;shareOut.classList.remove('hidden');
     shareOut.focus();shareOut.setSelectionRange(0,full.length);
+    shareOut.scrollLeft=0;                 // selecting scrolls to the end — show the score, not the tail of the URL
     say('Copy the text below');
   }
 });
