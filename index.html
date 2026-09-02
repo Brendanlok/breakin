@@ -24,6 +24,9 @@
 <meta property="og:image:alt" content="A Breakin arena half filled with glowing blocks, closing in around the ball.">
 <meta name="twitter:card" content="summary_large_image">
 <style>
+  /* 16px is a floor on every input: iOS Safari zooms into anything smaller on focus, and
+     user-scalable=no then leaves the player stuck zoomed with no way back out. */
+  *{touch-action:manipulation;}          /* no double-tap zoom; scrolling and taps unaffected */
   html,body{margin:0;height:100%;background:#0a0e14;overflow:hidden;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     touch-action:none;-webkit-user-select:none;user-select:none;}
@@ -104,6 +107,7 @@
   #nameInput{padding:10px 12px;font-size:19px;border-radius:9px;border:1px solid #33455f;
     text-transform:uppercase;letter-spacing:.22em;text-align:center;font-weight:800;width:7.2em;
     background:#0b1220;color:#e8edf4;width:150px;outline:none;}
+  #nameInput::placeholder{color:#54657f;font-weight:700;opacity:1;}   /* a suggestion, not a value — Save takes it if you type nothing */
   #nameInput:focus{border-color:#5fb0ff;}
   #saveBtn{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:9px;
     background:#5fb0ff;color:#05121f;cursor:pointer;}
@@ -186,7 +190,7 @@
   #admin .apanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
     width:320px;max-width:92vw;color:#e8edf4;text-align:left;}
   #admin .atitle{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#7f8ca0;margin-bottom:12px;}
-  #admin input{width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border-radius:9px;
+  #admin input{width:100%;box-sizing:border-box;padding:10px 12px;font-size:16px;border-radius:9px;
     border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;margin-bottom:10px;}
   #admin .ahint{font-size:11px;color:#6b7a90;line-height:1.4;margin-bottom:12px;}
   #admin .arow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
@@ -228,7 +232,7 @@
   #gate .gpanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:20px;
     width:280px;max-width:92vw;color:#e8edf4;}
   #gate .gtitle{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#7f8ca0;margin-bottom:12px;}
-  #gate input{width:100%;box-sizing:border-box;padding:11px 12px;font-size:15px;border-radius:9px;
+  #gate input{width:100%;box-sizing:border-box;padding:11px 12px;font-size:16px;border-radius:9px;
     border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;}
   #gate input:focus{border-color:#5fb0ff;}
   #gErr{font-size:12px;color:#e6957f;min-height:15px;margin:8px 0 12px;}
@@ -251,7 +255,7 @@
   #fb .fbpanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
     width:340px;max-width:92vw;color:#e8edf4;text-align:left;}
   #fb .atitle{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#7f8ca0;margin-bottom:12px;}
-  #fb input,#fb textarea{width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;border-radius:9px;
+  #fb input,#fb textarea{width:100%;box-sizing:border-box;padding:10px 12px;font-size:16px;border-radius:9px;
     border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;margin-bottom:10px;font-family:inherit;}
   #fb textarea{height:100px;resize:vertical;}
   #fb .fbrow{display:flex;gap:8px;}
@@ -290,7 +294,7 @@
   #compete #cCodeIn:focus{border-color:#5fb0ff;}
   #compete .cerr{font-size:12px;line-height:1.45;color:#e6957f;min-height:15px;}
   #compete .cerr.ok{color:#8fd6a0;}
-  #compete #cName{width:100%;box-sizing:border-box;padding:10px 12px;font-size:14px;text-align:center;
+  #compete #cName{width:100%;box-sizing:border-box;padding:10px 12px;font-size:16px;text-align:center;
     border-radius:9px;border:1px solid #33455f;background:#0b1220;color:#e8edf4;outline:none;font-family:inherit;}
   #compete #cName:focus{border-color:#5fb0ff;}
   #compete #cResultTitle{font-size:22px;font-weight:800;letter-spacing:.01em;color:#eaf2ff;}
@@ -517,8 +521,8 @@
     </div>
   </div>
   <div id="speed">
-    <span class="slbl">Ball speed &nbsp;&middot;&nbsp; score <b id="multVal">&times;2</b></span>
-    <input type="range" id="multSlider" min="1" max="5" step="0.5" value="2">
+    <span class="slbl">Ball speed &nbsp;&middot;&nbsp; score <b id="multVal">&times;3</b></span>
+    <input type="range" id="multSlider" min="1" max="5" step="0.5" value="3">
     <div class="ends"><span>slower</span><span>faster</span></div>
     <div class="hint">Faster ball &rarr; more points per block, less time to react.</div>
   </div>
@@ -585,6 +589,7 @@ const msgEl=document.getElementById('msg');
 const goStats=document.getElementById('goStats'), goSub=document.getElementById('goSub');
 const goTime=document.getElementById('goTime'), goBlk=document.getElementById('goBlk'), goScore=document.getElementById('goScore');
 const nameEntry=document.getElementById('nameEntry');
+let nameSuggest='';                        // the greyed-out name in the box — what Save uses if nothing is typed
 const nameInput=document.getElementById('nameInput');
 const saveBtn=document.getElementById('saveBtn');
 const board=document.getElementById('board');
@@ -810,7 +815,7 @@ function qualifies(score){
 
 async function commitPending(){
   if(!pendingScore)return null;
-  const name=cleanName(nameInput.value)||loadName()||randomName();
+  const name=cleanName(nameInput.value)||nameSuggest||loadName()||randomName();
   try{localStorage.setItem('breakin-name',name);}catch(e){}
   const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,
     mult:pendingScore.mult,created_at:new Date().toISOString()};
@@ -823,7 +828,6 @@ async function commitPending(){
   return entry;
 }
 saveBtn.addEventListener('click',async()=>{nameEntry.classList.add('hidden');await commitPending();});
-nameInput.addEventListener('focus',()=>nameInput.select());   // one tap to replace the suggestion
 nameInput.addEventListener('input',()=>{                      // caps + alphanumeric as you type, on every keyboard
   const c=cleanName(nameInput.value);
   if(c!==nameInput.value)nameInput.value=c;
@@ -1049,7 +1053,7 @@ fit();
 // Ball speed / score multiplier — set on the menu only, locked once a game starts.
 // score = blocks generated x mult;  faster ball = higher mult.
 const MAX_MULT=5;                            // slider top stop. The server guard must allow the same range — see 09-speed-x5-guard.sql
-let mult=2;
+let mult=3;
 try{const s=parseFloat(localStorage.getItem('breakin-mult'));if(s>=1&&s<=MAX_MULT)mult=s;}catch(e){}
 const ballFactor=()=>0.62+0.3*mult;          // mult 1 -> 0.92x ... mult 5 -> 2.12x base speed
 function setMult(m){
@@ -1294,7 +1298,8 @@ function endGame(reason){
   renderBoard();
   if(qualifies(score)){                    // decide from the board already loaded — no network wait, no race
     pendingScore={score,secs,blocks:blk,mult};
-    nameInput.value=loadName()||randomName();   // a suggestion, not a placeholder — Save always yields a real name
+    nameSuggest=loadName()||randomName();       // greyed in the empty box; Save on an untouched box uses exactly this
+    nameInput.value='';nameInput.placeholder=nameSuggest;
     nameEntry.classList.remove('hidden');
   }else{
     pendingScore=null;
@@ -2184,6 +2189,9 @@ compete.addEventListener('click',ev=>{if(ev.target===compete&&vsCd.classList.con
 // setInterval is throttled to ~1/min in a hidden tab, so a host who switches away to
 // paste the invite link comes back to a lobby that is up to a minute stale — and a
 // frozen heartbeat makes the other side call them dropped. Resync the moment we return.
+// iOS Safari ignores user-scalable=no, so pinch still zooms and the page has no way back to 1x
+// once it does. touch-action:manipulation covers double-tap; these cover the pinch.
+['gesturestart','gesturechange','gestureend'].forEach(g=>document.addEventListener(g,e=>e.preventDefault(),{passive:false}));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)return;kick();if(vs)vsTick();});
 // Last resort: visibilitychange does not fire in every embedded browser, so poll for a loop
 // that has stopped drawing. kick() is a no-op while frames are arriving.
