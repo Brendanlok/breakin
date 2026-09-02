@@ -971,6 +971,7 @@ let W,H,cell,rows,spawnMaxRow;
 let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,dryMs,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
+let lastFrameAt=0,lastFrameT=-1;   // when the loop last actually drew — the watchdog reads these
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
 const satEl=document.getElementById('sat');
 function fit(){
@@ -1242,8 +1243,11 @@ function endGame(reason){
 }
 
 function kick(){                           // ensure exactly one animation loop is running
-  if(rafOn)return;
-  rafOn=true;lastT=performance.now();requestAnimationFrame(loop);
+  // rafOn alone is not proof of life: some webviews drop the pending rAF callback when the
+  // page is backgrounded and never deliver it, leaving rafOn true and the canvas frozen for
+  // good. Trust the last drawn frame instead. A duplicate chain kills itself in loop().
+  if(rafOn&&performance.now()-lastFrameAt<1000)return;
+  rafOn=true;lastT=lastFrameAt=performance.now();requestAnimationFrame(loop);
 }
 function startAttract(){                   // demo playing behind the menu
   mode='attract';over=false;pendingScore=null;
@@ -1503,6 +1507,8 @@ function draw(){
 
 function loop(t){                          // guarded wrapper: one throw must not silently freeze the canvas
   if(!rafOn)return;
+  if(t===lastFrameT)return;                // two chains landed on the same frame: the second one stops here
+  lastFrameT=t;lastFrameAt=performance.now();
   try{ frame(t); }
   catch(err){
     reportError('loop crash: '+(err&&err.message||err), err&&err.stack);
@@ -2100,6 +2106,9 @@ compete.addEventListener('click',ev=>{if(ev.target===compete&&vsCd.classList.con
 // paste the invite link comes back to a lobby that is up to a minute stale — and a
 // frozen heartbeat makes the other side call them dropped. Resync the moment we return.
 document.addEventListener('visibilitychange',()=>{if(document.hidden)return;kick();if(vs)vsTick();});
+// Last resort: visibilitychange does not fire in every embedded browser, so poll for a loop
+// that has stopped drawing. kick() is a no-op while frames are arriving.
+setInterval(()=>{if(rafOn)kick();},2000);
 
 boardLoading=lbOn();
 renderBoard();                             // draw the panel now — an unrendered #board is a styled empty rectangle
