@@ -1620,7 +1620,10 @@ function loop(t){                          // guarded wrapper: one throw must no
   }
 }
 function frame(t){
-  let dt=t-lastT;lastT=t;if(dt>60)dt=60;
+  // The freeze watchdog sets lastT from performance.now(), but the rAF timestamp that follows it
+  // is the frame's own start time and can be a few ms earlier - so dt can come back negative and
+  // run the clock (and the ball) backwards. Clamp both ends, not just the long-frame end.
+  let dt=t-lastT;lastT=t;if(dt>60)dt=60;else if(dt<0)dt=0;
   if(mode==='over'){rafOn=false;return;}    // freeze on the final frame; startPlay() restarts the loop
   if(over&&mode==='attract')reset();        // a demo round ended — start a fresh arena
   if(mode==='play'&&paused){                // frozen; pause menu (DOM) is on top
