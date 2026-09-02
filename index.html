@@ -345,7 +345,10 @@
   #chase .row.you{margin-top:7px;padding-top:8px;border-top:1px solid rgba(120,150,200,.16);color:#ffd25f;}
   #chase .row.you b{color:#ffd25f;}
   #ptip{position:fixed;left:0;right:0;top:calc(94px + env(safe-area-inset-top,0px));text-align:center;
-    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#5f6d82;pointer-events:none;z-index:30;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#93a1b5;pointer-events:none;z-index:30;
+    /* a top-wall bounce always lands its block in row 0, right under this line — the halo keeps
+       the tip readable where it overlaps a freshly placed block */
+    text-shadow:0 0 5px #0a0e14,0 0 5px #0a0e14,0 0 10px #0a0e14;
     opacity:0;transition:opacity .5s;}
   #ptip.show{opacity:1;}
   .hidden{display:none!important;}
