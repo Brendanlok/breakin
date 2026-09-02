@@ -2192,6 +2192,19 @@ compete.addEventListener('click',ev=>{if(ev.target===compete&&vsCd.classList.con
 // iOS Safari ignores user-scalable=no, so pinch still zooms and the page has no way back to 1x
 // once it does. touch-action:manipulation covers double-tap; these cover the pinch.
 ['gesturestart','gesturechange','gestureend'].forEach(g=>document.addEventListener(g,e=>e.preventDefault(),{passive:false}));
+// touch-action:manipulation is supposed to kill double-tap zoom and does not on real iOS Safari,
+// which then strands the player zoomed in mid-game because user-scalable=no blocks pinching back out.
+// So swallow the second tap of a genuine double tap - same spot, inside 350ms. Matching on position
+// as well as time keeps two quick taps on DIFFERENT controls working. The paddle and the pause tap
+// run on pointer events, which this does not touch, so no control input is ever lost.
+let tapT=0,tapX=0,tapY=0;
+document.addEventListener('touchend',e=>{
+  if(e.touches.length)return;                       // other fingers still down - not the end of a tap
+  const t=e.changedTouches[0];if(!t)return;
+  const now=Date.now();
+  if(now-tapT<=350&&Math.abs(t.clientX-tapX)<40&&Math.abs(t.clientY-tapY)<40)e.preventDefault();
+  tapT=now;tapX=t.clientX;tapY=t.clientY;
+},{passive:false});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)return;kick();if(vs)vsTick();});
 // Last resort: visibilitychange does not fire in every embedded browser, so poll for a loop
 // that has stopped drawing. kick() is a no-op while frames are arriving.
