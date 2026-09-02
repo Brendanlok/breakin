@@ -608,11 +608,15 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const pad2=n=>String(n).padStart(2,'0');
 const shortDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':pad2(d.getDate())+'.'+pad2(d.getMonth()+1)+'.'+d.getFullYear();};
 const fullDate=iso=>{if(!iso)return'';const d=new Date(iso);return isNaN(d)?'':shortDate(iso)+' '+pad2(d.getHours())+':'+pad2(d.getMinutes());};
-const loadLocal=()=>{try{return JSON.parse(localStorage.getItem('breakin-scores'))||[];}catch(e){return[];}};
+const loadLocal=()=>{try{return (JSON.parse(localStorage.getItem('breakin-scores'))||[]).map(fixName);}catch(e){return[];}};
 const saveLocal=l=>{try{localStorage.setItem('breakin-scores',JSON.stringify(l.slice(0,MAXBOARD)));}catch(e){}};
 // Arcade rule: a name is up to 6 characters, capitals and digits only. Applied on the way in AND
 // on the way out, so a long mixed-case name saved before this becomes a legal one instead of sticking.
 const cleanName=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+// Every row is canonicalised the moment it enters the app - from the server or from localStorage -
+// so the display, the "that row is you" match and the rank line all agree. Cleaning at each render
+// site instead would leave the name comparisons still looking at the raw value.
+const fixName=r=>({...r,name:cleanName(r.name)||'PLAYER'});
 const loadName=()=>{try{return cleanName(localStorage.getItem('breakin-name'));}catch(e){return'';}};
 const loadBest=()=>{try{return +localStorage.getItem('breakin-best')||0;}catch(e){return 0;}};
 // A player who just hits Save used to land on the board as "PLAYER", so most rows shared one name
@@ -663,7 +667,7 @@ async function lbFetch(todayOnly){
     // secs comes back too: the board ranks a tie by who got there faster
     const f=todayOnly?'&created_at=gte.'+dayStartISO():'';
     const r=await fetch(LB_URL+'?select=name,score,secs,created_at&order=score.desc,secs.asc,created_at.asc&limit='+LB_LIMIT+f,{headers:{apikey:LB_KEY}});
-    return r.ok?await r.json():null;
+    return r.ok?(await r.json()).map(fixName):null;
   }catch(e){return null;}
 }
 async function lbSubmit(e){
@@ -2250,6 +2254,8 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
   console.assert(cleanName('Lok')==='LOK','short names survive intact');
   console.assert(cleanName('  a-b_c!d@e#f$g ')==='ABCDEF','punctuation is dropped, not substituted');
   console.assert(cleanName('')===''&&cleanName(null)==='','empty stays empty so the fallback can fire');
+  console.assert(fixName({name:'SHARP WASP',score:9}).name==='SHARPW','a legacy long name is shortened on the board too, not just on save');
+  console.assert(fixName({name:'!!!',score:9}).name==='PLAYER','a legacy name with nothing legal left still shows something');
   console.assert(NAME_ALL.every(w=>w.length<=5)&&randomName().length<=6&&/^[A-Z0-9]+$/.test(randomName()),
     'every suggested name is itself a legal name');
 })();
