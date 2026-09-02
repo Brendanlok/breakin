@@ -146,6 +146,11 @@
     letter-spacing:.14em;text-transform:uppercase;color:#8b98ac;background:#141d2b;
     border:1px solid #283549;border-radius:999px;cursor:pointer;}
   #board .bmore:active{background:#1b2636;}
+  #board .btabs{display:flex;justify-content:center;gap:6px;margin:-2px 0 11px;}
+  #board .btab{padding:4px 12px;font:inherit;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:#6b788c;background:#101823;border:1px solid #223047;border-radius:999px;cursor:pointer;}
+  #board .btab.on{color:#cfe0f5;background:#1b2636;border-color:#33455f;}
+  #board .bday{color:#5f6d82;font-size:11px;text-align:center;margin-top:9px;letter-spacing:.02em;}
   #chint{margin-top:18px;font-size:12px;color:#5f6d82;letter-spacing:.03em;}
   #chint b{color:#93a1b5;font-weight:700;}
   @media (pointer:coarse){#chint{display:none;}}
@@ -616,7 +621,27 @@ const NAME_ALL=NAME_A.concat(NAME_B).filter(w=>w.length<=5);
 const randomName=()=>NAME_ALL[Math.floor(Math.random()*NAME_ALL.length)]+Math.floor(Math.random()*10);
 const saveBest=n=>{try{localStorage.setItem('breakin-best',n);}catch(e){}};
 
-let remoteBoard=null;        // array once the shared board loads this session; null = offline / not configured
+// ---- daily seed ----
+// Everyone who plays on the same calendar day gets the same opening ball, so the day's board is a
+// fair race rather than a lottery. UTC, so the day turns over at one instant worldwide instead of
+// giving whoever is furthest east a head start on a fresh board.
+const dayKey=()=>new Date().toISOString().slice(0,10);
+const dayStartISO=()=>dayKey()+'T00:00:00Z';
+const isToday=s=>String(s.created_at||'').slice(0,10)===dayKey();
+// ponytail: an FNV-1a hash of the date, not a seeded PRNG. A run needs exactly ONE random number —
+// the launch angle — so a whole generator would be dead weight. Swap one in if a run ever needs a stream.
+function dayRand(){
+  let h=2166136261;
+  const k=dayKey();
+  for(let i=0;i<k.length;i++)h=Math.imul(h^k.charCodeAt(i),16777619);
+  h^=h>>>15;h=Math.imul(h,2246822507);h^=h>>>13;
+  return ((h>>>0)%100000)/100000;
+}
+
+let boardView='today';       // 'today' | 'all' — the daily race is what the game is about, so it leads
+let remoteAll=null,remoteToday=null;   // null = offline / not configured
+const remoteBoardFor=()=>boardView==='today'?remoteToday:remoteAll;
+const localBoardFor=()=>boardView==='today'?loadLocal().filter(isToday):loadLocal();
 let boardLoading=false;      // first shared-board fetch in flight — don't claim the board is empty or offline yet
 let pendingScore=null;
 let histOpen=false;          // player tapped their own row open to see their recent runs
@@ -627,11 +652,12 @@ const BOARD_COLLAPSED=5;
 // Ceiling: past 300 saved scores it undercounts — switch to a server-side distinct-name count then.
 const LB_LIMIT=300;
 
-async function lbFetch(){
+async function lbFetch(todayOnly){
   if(!lbOn())return null;
   try{
     // secs comes back too: the board ranks a tie by who got there faster
-    const r=await fetch(LB_URL+'?select=name,score,secs,created_at&order=score.desc,secs.asc,created_at.asc&limit='+LB_LIMIT,{headers:{apikey:LB_KEY}});
+    const f=todayOnly?'&created_at=gte.'+dayStartISO():'';
+    const r=await fetch(LB_URL+'?select=name,score,secs,created_at&order=score.desc,secs.asc,created_at.asc&limit='+LB_LIMIT+f,{headers:{apikey:LB_KEY}});
     return r.ok?await r.json():null;
   }catch(e){return null;}
 }
@@ -645,7 +671,10 @@ async function lbSubmit(e){
     return r.ok;
   }catch(err){return false;}
 }
-async function refreshBoard(){remoteBoard=await lbFetch();boardLoading=false;renderBoard();}
+async function refreshBoard(){
+  const [a,t]=await Promise.all([lbFetch(false),lbFetch(true)]);   // both views up front — switching tabs is then instant
+  remoteAll=a;remoteToday=t;boardLoading=false;renderBoard();
+}
 
 // A refused save is not a lost run. The server refuses a burst of scores from one name inside a
 // short window, and a phone loses signal for a few seconds — both pass on their own. Keep the run
@@ -693,14 +722,14 @@ const rankCmp=(a,b)=>b.score-a.score||secsOf(a)-secsOf(b);
 // The board ranks RUNS, best first, up to MAXBOARD of them. It used to show only each player's
 // best, which kept one name off every slot but also meant a three-player game could only ever
 // draw a three-row board. A leaderboard that runs #1 to #10 reads like a leaderboard.
-const currentBoard=()=>(remoteBoard||loadLocal()).slice().sort(rankCmp);
+const currentBoard=()=>(remoteBoardFor()||localBoardFor()).slice().sort(rankCmp);
 
 // One quiet line under the board: where you stand, and how big the field is. Without it a
 // three-row board reads as broken rather than as a young game, and anyone outside the top 10
 // learns nothing about how they did.
 function rankLine(all,mine){
   const players=new Set(all.map(s=>s.name)).size;      // rows are runs now, so the field is the distinct names
-  const field=players+' player'+(players===1?'':'s')+' so far';
+  const field=players+' player'+(players===1?'':'s')+(boardView==='today'?' today':' so far');
   const nm=(mine&&mine.name)||loadName();
   const i=nm?all.findIndex(s=>s.name===nm):-1;         // sorted best-first, so this is your best run
   return '<div class="brank">'+(i<0?field:'You are <b>#'+(i+1)+'</b> &middot; '+field)+'</div>';
@@ -721,10 +750,15 @@ const histBlock=(runs,solo)=>`<div class="hist${solo?' solo':''}"><div class="hl
 function renderBoard(mine){
   const all=currentBoard();
   const list=all.slice(0,MAXBOARD);
-  const tag=DEV?' &middot; dev mode, scores not saved':!lbOn()?' &middot; this device':(remoteBoard||boardLoading?'':' &middot; offline');
-  let html='<div class="bt">Leaderboard'+tag+'</div>';
+  const tag=DEV?' &middot; dev mode, scores not saved':!lbOn()?' &middot; this device':(remoteBoardFor()||boardLoading?'':' &middot; offline');
+  let html='<div class="bt">Leaderboard'+tag+'</div>'
+    +'<div class="btabs"><button class="btab'+(boardView==='today'?' on':'')+'" data-v="today">Today</button>'
+    +'<button class="btab'+(boardView==='all'?' on':'')+'" data-v="all">All time</button></div>';
+  const dayLine=boardView==='today'?'<div class="bday">Same starting ball for everyone today</div>':'';
   if(!list.length){board.innerHTML=html+'<div class="empty">'
-    +(boardLoading?'Loading scores&hellip;':'No scores yet &mdash; play to claim #1.')+'</div>';return;}
+    +(boardLoading?'Loading scores&hellip;'
+      :boardView==='today'?'No scores yet today &mdash; play to claim #1.'
+      :'No scores yet &mdash; play to claim #1.')+'</div>'+dayLine;return;}
   const myName=loadName();
   const runs=myName?myRuns(myName):[];
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
@@ -752,18 +786,25 @@ function renderBoard(mine){
   html+=rankLine(all,mine);
   if(saveFailed)html+='<div class="bwarn">Could not reach the leaderboard &mdash; still trying. This run is saved on this device.</div>';
   if(runs.length>1&&!shown.some(s=>s.name===myName))html+=histBlock(runs,true);
+  html+=dayLine;
   board.innerHTML=html;
 }
 board.addEventListener('click',e=>{
-  const t=e.target.closest('.bmore,.own');
+  const t=e.target.closest('.bmore,.own,.btab');
   if(!t)return;
-  if(t.classList.contains('bmore'))boardExpanded=!boardExpanded; else histOpen=!histOpen;
+  if(t.classList.contains('btab')){
+    if(t.dataset.v===boardView)return;
+    boardView=t.dataset.v;boardExpanded=false;   // a fresh view starts collapsed, like a fresh board
+  }
+  else if(t.classList.contains('bmore'))boardExpanded=!boardExpanded; else histOpen=!histOpen;
   renderBoard();
 });
 
+// Judged against TODAY's board no matter which tab is open: the daily race is what a player enters,
+// and today's rows are a subset of all rows, so this is never stricter than the all-time cut.
 function qualifies(score){
   if(score<=0)return false;
-  const list=currentBoard();
+  const list=(remoteToday||loadLocal().filter(isToday)).slice().sort(rankCmp);
   return list.length<MAXBOARD||score>list[list.length-1].score;
 }
 
@@ -1160,7 +1201,7 @@ function reset(){
 }
 function resetBall(){                 // launches immediately, upward at a random angle, from 2 cells above the bar
   const sp=Math.max(3.2,cell*0.135)*ballFactor();
-  const ang=-Math.PI/2+(Math.random()-0.5);   // straight up +/- ~0.5 rad
+  const ang=-Math.PI/2+((mode==='play'?dayRand():Math.random())-0.5);   // straight up +/- ~0.5 rad; a real run uses the day's seed so everyone starts alike
   ball={x:W/2,y:paddleY()-cell*2,r:Math.max(4.5,cell*0.26),
         vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,speed:sp,base:sp};
   pending=null;stuckMs=0;stuckX=ball.x;stuckY=ball.y;
