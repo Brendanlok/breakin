@@ -636,6 +636,22 @@ async function lbSubmit(e){
 }
 async function refreshBoard(){remoteBoard=await lbFetch();boardLoading=false;renderBoard();}
 
+// A refused save is not a lost run. The server refuses a burst of scores from one name inside a
+// short window, and a phone loses signal for a few seconds — both pass on their own. Keep the run
+// in a queue and retry in the background instead of stranding it on this device.
+// ponytail: one timer, in-memory only. A run still queued when the tab closes is lost — persist it
+// to localStorage if that turns out to matter.
+const saveQueue=[];let queueT=0,queueTries=0;
+function queueSave(entry){
+  saveQueue.push(entry);
+  if(queueT)return;
+  queueT=setInterval(async()=>{
+    if(!saveQueue.length||queueTries>=6){clearInterval(queueT);queueT=0;return;}
+    queueTries++;
+    if(await lbSubmit(saveQueue[0])){saveQueue.shift();queueTries=0;saveFailed=saveQueue.length>0;await refreshBoard();}
+  },20000);
+}
+
 // ---- best-effort crash + feedback reporting (Supabase, anon-insert only) ----
 const REST=LB_URL.replace(/\/breakin_scores$/,'');
 // Resolves true only if the row really reached the inbox. Anything that tells the player it
@@ -723,7 +739,7 @@ function renderBoard(mine){
   if(list.length>BOARD_COLLAPSED)
     html+=`<button class="bmore">${showAll?'Show less':'Show all '+list.length}</button>`;
   html+=rankLine(all,mine);
-  if(saveFailed)html+='<div class="bwarn">Could not reach the leaderboard &mdash; this run is saved on this device only.</div>';
+  if(saveFailed)html+='<div class="bwarn">Could not reach the leaderboard &mdash; still trying. This run is saved on this device.</div>';
   if(runs.length>1&&!shown.some(s=>s.name===myName))html+=histBlock(runs,true);
   board.innerHTML=html;
 }
@@ -750,6 +766,7 @@ async function commitPending(){
   const loc=loadLocal();loc.push(entry);loc.sort(rankCmp);saveLocal(loc);   // always keep a local copy
   saveFailed=false;
   if(lbOn()){saveFailed=!DEV&&!await lbSubmit(entry);await refreshBoard();}
+  if(saveFailed)queueSave(entry);
   renderBoard(entry);
   return entry;
 }
