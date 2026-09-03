@@ -2157,13 +2157,20 @@ function vsDoRematch(toSettings){
     vsBeginCountdown(at,vs.roomMult);
   }
 }
-function vsEndMatch(){
+// A match can end for four reasons and used to end the same way for all of them: the panel
+// vanished and you were back on the menu with no word. Worst case, you tapped "Play again",
+// nobody answered, and 30s later the screen just ate itself. Always say why.
+function vsEndMatch(why){
   if(!vs)return;
+  const who=vs.oppName||'The other player';
+  const title=why||(vs.oppDropped?who+' left'
+    :vs.oppChoice==='end'?who+' ended the match'
+    :vs.myChoice==='end'?'Match ended'
+    :'Match ended — no answer in time');
   stopRematchTimer();
   if(vs.role==='host'&&vs.lobbySync)roomPatch(vs.code,{phase:'ended'});
   vsCleanup(true);                            // leave the room for the 3h sweep; both sides just detach
-  compete.classList.add('hidden');
-  if(overlay.classList.contains('hidden'))startAttract();
+  vsFarewell(title);
 }
 function hostRematch(){
   if(!vs||vs.role!=='host')return;
@@ -2177,22 +2184,24 @@ function hostRematch(){
 // Say what happened, count down, then take yourself back to the menu.
 let abortT=0;
 function stopAbortCountdown(){if(abortT){clearInterval(abortT);abortT=0;}}
+function vsFarewell(title){                     // say what happened, count down, then take yourself back
+  compete.classList.remove('hidden');showCView('result');
+  cRematch.classList.add('hidden');cResultWait.classList.add('hidden');cArenas.classList.add('hidden');
+  cResultTitle.classList.remove('win','lose','tie');
+  cResultTitle.textContent=title;
+  let n=3;
+  const tick=()=>{cResultScore.textContent='Back to the menu in '+n;};
+  tick();
+  stopAbortCountdown();
+  abortT=setInterval(()=>{
+    if(--n<=0){stopAbortCountdown();closeCompete();return;}     // 3, 2, 1, gone
+    tick();
+  },1000);
+}
 function vsAbort(){
   const wasVersus=versus;
   vsCleanup(true);
-  if(wasVersus||!overlay.classList.contains('hidden')){
-    compete.classList.remove('hidden');showCView('result');
-    cRematch.classList.add('hidden');cResultWait.classList.add('hidden');cArenas.classList.add('hidden');
-    cResultTitle.classList.remove('win','lose','tie');
-    cResultTitle.textContent='The other player left';
-    let n=3;
-    cResultScore.textContent='Back to the menu in '+n;
-    stopAbortCountdown();
-    abortT=setInterval(()=>{
-      if(--n<=0){stopAbortCountdown();closeCompete();return;}   // 3, 2, 1, gone
-      cResultScore.textContent='Back to the menu in '+n;
-    },1000);
-  }
+  if(wasVersus||!overlay.classList.contains('hidden'))vsFarewell('The other player left');
 }
 
 document.getElementById('competeBtn').addEventListener('click',()=>{cNameIn.value=loadName()||randomName();openCompete('choice');});
