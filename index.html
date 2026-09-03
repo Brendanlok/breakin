@@ -210,6 +210,7 @@
   #admin #aOut .lrow:first-child{border-top:0;}
   #admin #aOut .card{padding:8px 0;border-top:1px solid #172230;}
   #admin #aOut .card:first-child{border-top:0;}
+  #admin #aOut .card .dim.top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;}
   #admin #aOut .del{padding:4px 9px;font-size:11px;background:#2a3444;color:#c9d3e0;border-radius:7px;
     border:0;cursor:pointer;white-space:nowrap;}
   #admin #aOut .del.armed{background:#b3402f;color:#fff;}
@@ -944,13 +945,18 @@ async function doScores(){
     `<div class="lrow"><span>${i+1}. <b>${esc(r.name)}</b> &mdash; ${r.score} pts`
     +`<br><span class="dim">${r.blocks} blocks &times; ${r.mult||'?'} &nbsp;·&nbsp; ${r.secs}s &nbsp;·&nbsp; ${fullDate(r.created_at)}</span></span>`
     +`<button class="del" data-id="${r.id}">delete</button></div>`).join('');
+  wireDeletes('delete_one',async()=>{await refreshBoard();await doScores();});
+}
+// every delete in the admin panel: click once to arm, click again to go through
+function wireDeletes(action,after){
   aOut.querySelectorAll('.del').forEach(b=>b.addEventListener('click',async()=>{
     if(!b.dataset.armed){aOut.querySelectorAll('.del').forEach(x=>{x.dataset.armed='';x.classList.remove('armed');x.textContent='delete';});
       armFor(b,'click again to delete');return;}
     b.dataset.armed='';b.textContent='…';
-    const d=await rpc('delete_one',{target:b.dataset.id});
-    await refreshBoard();
-    await doScores();
+    const d=await rpc(action,{target:b.dataset.id});
+    if(!d||d.ok===false){                       // migration 12 not run yet, or passphrase changed under us
+      aOut.innerHTML='<i>Could not delete &mdash; the database still needs migration 12 (or the passphrase is wrong).</i>';return;}
+    await after();
   }));
 }
 async function doFeedback(){
@@ -959,8 +965,10 @@ async function doFeedback(){
   if(!Array.isArray(rows)){aOut.textContent='Could not load (passphrase or connection).';return;}
   if(!rows.length){aOut.innerHTML='<i>No feedback yet.</i>';return;}
   aOut.innerHTML=rows.map(f=>
-    `<div class="card"><div class="dim">${f.name?esc(f.name):'anonymous'} &nbsp;·&nbsp; ${fullDate(f.created_at)}</div>`
+    `<div class="card"><div class="dim top"><span>${f.name?esc(f.name):'anonymous'} &nbsp;·&nbsp; ${fullDate(f.created_at)}</span>`
+    +`<button class="del" data-id="${f.id}">delete</button></div>`
     +`<div>${esc(f.message)}</div></div>`).join('');
+  wireDeletes('delete_feedback',doFeedback);
 }
 async function doErrors(){
   aOut.textContent='Loading…';
@@ -968,10 +976,12 @@ async function doErrors(){
   if(!Array.isArray(rows)){aOut.textContent='Could not load (passphrase or connection).';return;}
   if(!rows.length){aOut.innerHTML='<i>No crash reports &mdash; nice.</i>';return;}
   aOut.innerHTML=rows.map(e=>
-    `<div class="card"><div class="dim">${fullDate(e.created_at)}</div>`
+    `<div class="card"><div class="dim top"><span>${fullDate(e.created_at)}</span>`
+    +`<button class="del" data-id="${e.id}">delete</button></div>`
     +`<div><b>${esc(e.msg||'error')}</b></div>`
     +(e.extra?`<div class="dim">${esc(JSON.stringify(e.extra))}</div>`:'')
     +(e.stack?`<pre>${esc(e.stack)}</pre>`:'')+`</div>`).join('');
+  wireDeletes('delete_error',doErrors);
 }
 const btnReset=document.getElementById('btnReset');
 btnReset.addEventListener('click',async()=>{
