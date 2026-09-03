@@ -1099,9 +1099,9 @@ multSlider.addEventListener('input',()=>setMult(parseFloat(multSlider.value)));
 setMult(mult);
 
 // ---- touch controls (mobile only): on-screen buttons or device-tilt ----
-let touchCtl='buttons', heldDir=0, tiltGamma=0, tiltOn=false;
+let touchCtl='buttons', heldDir=0, tiltGamma=0, tiltOn=false, tiltSeen=false;
 try{const t=localStorage.getItem('breakin-touch');if(t==='buttons'||t==='tilt')touchCtl=t;}catch(e){}
-function onOrient(e){if(e.gamma!=null)tiltGamma=e.gamma;}
+function onOrient(e){if(e.gamma!=null){tiltGamma=e.gamma;tiltSeen=true;}}
 async function enableTilt(){
   if(tiltOn)return true;
   try{
@@ -1120,6 +1120,15 @@ async function setTouchCtl(t){
   touchCtl=t;
   try{localStorage.setItem('breakin-touch',t);}catch(e){}
   markTouchBtns();
+}
+// Tilt can fail two silent ways: motion access denied, or a device that never sends a reading.
+// Either one leaves the paddle dead AND the arrows hidden, with one life and no way to move.
+function tiltFallback(){
+  if(touchCtl!=='tilt')return;
+  touchCtl='buttons';
+  try{localStorage.setItem('breakin-touch','buttons');}catch(e){}
+  markTouchBtns();showTpad(mode==='play');
+  if(mode==='play')showPtip('tilt is off — use the arrows');
 }
 if(isTouch){
   tctl.classList.remove('hidden');
@@ -1365,7 +1374,8 @@ function startAttract(){                   // demo playing behind the menu
 function startPlay(){
   if(unsavedGuard())return;               // unsaved board spot: one bounce before it is dropped
   pendingScore=null;                       // a run you did not Save is not saved - never post a name the player never typed
-  if(isTouch&&touchCtl==='tilt'&&!tiltOn)enableTilt();   // Play is a user gesture — ok to ask now
+  if(isTouch&&touchCtl==='tilt'&&!tiltOn)enableTilt().then(ok=>{if(!ok)tiltFallback();});   // Play is a user gesture — ok to ask now
+  if(isTouch&&touchCtl==='tilt')setTimeout(()=>{if(mode==='play'&&!tiltSeen)tiltFallback();},1500);   // granted but no reading ever arrives
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;
   nameEntry.classList.add('hidden');homeLink.classList.add('hidden');
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');
