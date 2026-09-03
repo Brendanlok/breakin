@@ -103,11 +103,12 @@
   @media (prefers-reduced-motion:reduce){#startBtn{animation:none;}}
   #nameEntry{margin:14px 0 2px;}
   #nameEntry .ne-label{color:#8fd6a0;font-size:13px;font-weight:700;letter-spacing:.04em;margin-bottom:7px;}
+  #nameEntry .ne-label.warn{color:#ffcf6b;}
   #nameEntry .ne-row{display:flex;gap:8px;justify-content:center;}
   #nameInput{padding:10px 12px;font-size:19px;border-radius:9px;border:1px solid #33455f;
     text-transform:uppercase;letter-spacing:.22em;text-align:center;font-weight:800;width:7.2em;
     background:#0b1220;color:#e8edf4;width:150px;outline:none;}
-  #nameInput::placeholder{color:#54657f;font-weight:700;opacity:1;}   /* a suggestion, not a value — Save takes it if you type nothing */
+  #nameInput::placeholder{color:#54657f;font-weight:700;opacity:1;}   /* a suggestion, not a value — an empty box saves nothing */
   #nameInput:focus{border-color:#5fb0ff;}
   #saveBtn{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:9px;
     background:#5fb0ff;color:#05121f;cursor:pointer;}
@@ -840,6 +841,23 @@ nameInput.addEventListener('input',()=>{                      // caps + alphanum
 });
 nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveBtn.click();}});
 
+// A qualifying score is thrown away the moment this screen changes, and both ways off it
+// (Play again / Back to start) sit directly under the name box. Bounce the first attempt
+// once, at the two places every one of those paths goes through.
+const neLabel=nameEntry.querySelector('.ne-label');
+const NE_OK='&#9733; You made the leaderboard';
+let leaveArmed=false;
+function armNameEntry(){leaveArmed=false;neLabel.innerHTML=NE_OK;neLabel.classList.remove('warn');}
+function unsavedGuard(){
+  if(!pendingScore||nameEntry.classList.contains('hidden')||leaveArmed)return false;
+  leaveArmed=true;
+  neLabel.textContent='Save your score first — or go again to skip it';
+  neLabel.classList.add('warn');
+  try{nameInput.focus();}catch(e){}
+  setTimeout(()=>{if(leaveArmed)armNameEntry();},5000);
+  return true;
+}
+
 // ---- hidden admin: open via #admin in the URL, or 5 quick taps on the badge. ----
 // All privileged actions go through a Supabase SECURITY DEFINER function that checks a
 // passphrase server-side; nothing secret is stored in this file.
@@ -1303,8 +1321,9 @@ function endGame(reason){
   renderBoard();
   if(qualifies(score)){                    // decide from the board already loaded — no network wait, no race
     pendingScore={score,secs,blocks:blk,mult};
-    nameInput.value='';                         // empty, with a greyed example - nothing is saved until it is typed
-    saveBtn.disabled=true;
+    nameInput.value=loadName();                 // your own initials from last time - still nothing is posted until Save is pressed
+    saveBtn.disabled=!nameInput.value;
+    armNameEntry();
     nameEntry.classList.remove('hidden');
   }else{
     pendingScore=null;
@@ -1321,6 +1340,7 @@ function kick(){                           // ensure exactly one animation loop 
   rafOn=true;lastT=lastFrameAt=performance.now();requestAnimationFrame(loop);
 }
 function startAttract(){                   // demo playing behind the menu
+  if(unsavedGuard())return;
   mode='attract';over=false;pendingScore=null;
   nameEntry.classList.add('hidden');
   badgeEl.textContent='Breakout, in reverse';
@@ -1337,6 +1357,7 @@ function startAttract(){                   // demo playing behind the menu
   fit();reset();kick();
 }
 function startPlay(){
+  if(unsavedGuard())return;               // unsaved board spot: one bounce before it is dropped
   pendingScore=null;                       // a run you did not Save is not saved - never post a name the player never typed
   if(isTouch&&touchCtl==='tilt'&&!tiltOn)enableTilt();   // Play is a user gesture — ok to ask now
   mode='play';over=false;heldDir=0;paused=false;resumeIn=0;
@@ -2268,6 +2289,17 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
   console.assert(fixName({name:'!!!',score:9}).name==='PLAYER','a legacy name with nothing legal left still shows something');
   console.assert(NAME_ALL.every(w=>w.length<=5)&&randomName().length<=6&&/^[A-Z0-9]+$/.test(randomName()),
     'every suggested name is itself a legal name');
+
+  // the unsaved-score guard: bounces once, then gets out of the way
+  (()=>{const wasPending=pendingScore,wasHidden=nameEntry.classList.contains('hidden'),wasArmed=leaveArmed;
+    pendingScore={score:1};nameEntry.classList.remove('hidden');leaveArmed=false;
+    console.assert(unsavedGuard()===true,'first attempt to leave an unsaved board spot is bounced');
+    console.assert(unsavedGuard()===false,'the second attempt goes through');
+    leaveArmed=false;nameEntry.classList.add('hidden');
+    console.assert(unsavedGuard()===false,'no bounce when there is no name box on screen');
+    pendingScore=wasPending;leaveArmed=wasArmed;nameEntry.classList.toggle('hidden',wasHidden);armNameEntry();
+    try{nameInput.blur();}catch(e){}   // the check above focuses the box; never leave a phone keyboard open on load
+  })();
 })();
 </script>
 </body>
