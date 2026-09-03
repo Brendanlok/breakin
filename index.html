@@ -2326,6 +2326,12 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     try{nameInput.blur();}catch(e){}   // the check above focuses the box; never leave a phone keyboard open on load
   })();
 })();
+
+// Offline shell. Registered last and failure-tolerant: no service worker just means
+// the game needs a connection to open, exactly as before.
+if('serviceWorker' in navigator){
+  addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});
+}
 </script>
 </body>
 </html>
