@@ -35,9 +35,10 @@
     padding-top:calc(82px + env(safe-area-inset-top,0px));}
   canvas{background:#0d1420;display:block;touch-action:none;
     box-shadow:0 0 80px rgba(80,140,255,.18);border-radius:4px;
-    animation:cfade .5s ease-out both;}
+    animation:cfade .5s ease-out both;
+    transform-origin:top center;transition:transform .15s ease-out;}
   @keyframes cfade{from{opacity:0}to{opacity:1}}
-  @media (prefers-reduced-motion:reduce){canvas{animation:none;}#hud .st-score.newbest{animation:none;box-shadow:0 0 0 1px rgba(255,210,95,.7);}}
+  @media (prefers-reduced-motion:reduce){canvas{animation:none;transition:none;}#hud .st-score.newbest{animation:none;box-shadow:0 0 0 1px rgba(255,210,95,.7);}}
   #hud{position:fixed;top:calc(9px + env(safe-area-inset-top,0px));left:0;right:0;display:flex;
     justify-content:center;gap:7px;padding:0 8px;flex-wrap:wrap;pointer-events:none;
     font-variant-numeric:tabular-nums;}
@@ -1071,7 +1072,7 @@ function fit(){
   W=cell*COLS;
   H=rows*cell;
   spawnMaxRow=rows-1;                 // blocks form right down to the row the paddle rests against — no floating gap above it
-  canvas.width=W;canvas.height=H;
+  canvas.width=W;canvas.height=H;canvas.style.transform='';   // a new run always starts unzoomed
   if(grid&&grid.length!==rows){       // viewport changed row count (e.g. phone rotate) — keep grid in sync so draw()/step() don't read past its end
     const g=newGrid();
     for(let r=0;r<Math.min(rows,grid.length);r++)g[r]=grid[r];
@@ -1084,7 +1085,20 @@ function fit(){
 // at its old width in a differently-sized arena. iOS fires resize constantly as Safari's
 // URL bar slides, which is why the phone drifted away from the desktop and the desktop
 // never did. startPlay/reset call fit() first, so the next run picks up any new size.
-addEventListener('resize',()=>{if(mode==='play')return;fit();if(ball)draw();});
+// ...but the arena still has to stay on screen. Rotating a phone to landscape mid-run left the
+// portrait-sized canvas in place and pushed the paddle ~350px below the fold: invisible, with the
+// run already lost by the time it came back. Shrinking the canvas visually is safe where refitting
+// is not - no arena geometry changes, and the one screen-to-arena mapping left (tap the top half to
+// pause) reads the live rect, so it scales with it.
+function zoomToFit(){
+  const avail=window.innerHeight-HUD_RESERVE-(satEl.getBoundingClientRect().height||0);
+  // a hidden or embedded frame can report 0 for either axis - ignore a non-positive ratio
+  // rather than scale the arena away to nothing
+  const s=Math.min(1,avail>0?avail/H:1,innerWidth>0?Math.min(innerWidth,460)/W:1);
+  canvas.style.transform=s<1?'scale('+s.toFixed(3)+')':'';
+  placeChase();                       // the side panel is positioned off the canvas rect
+}
+addEventListener('resize',()=>{if(mode==='play'){zoomToFit();return;}fit();if(ball)draw();});
 fit();
 
 // Ball speed / score multiplier — set on the menu only, locked once a game starts.
