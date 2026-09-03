@@ -767,10 +767,14 @@ function renderBoard(mine){
     +'<div class="btabs"><button class="btab'+(boardView==='today'?' on':'')+'" data-v="today">Today</button>'
     +'<button class="btab'+(boardView==='all'?' on':'')+'" data-v="all">All time</button></div>';
   const dayLine=boardView==='today'?'<div class="bday">Same starting ball for everyone today</div>':'';
+  // A refused save must be said on the empty board too. That is precisely when it is most likely:
+  // an empty board is a fresh one, and a run that never lands leaves it looking untouched.
+  const warn=saveGaveUp?'<div class="bwarn">This run could not be added to the shared board. It is saved on this device &mdash; play again to have another go.</div>'
+    :saveFailed?'<div class="bwarn">Could not reach the leaderboard &mdash; still trying. This run is saved on this device.</div>':'';
   if(!list.length){board.innerHTML=html+'<div class="empty">'
     +(boardLoading?'Loading scores&hellip;'
       :boardView==='today'?'No scores yet today &mdash; play to claim #1.'
-      :'No scores yet &mdash; play to claim #1.')+'</div>'+dayLine;return;}
+      :'No scores yet &mdash; play to claim #1.')+'</div>'+warn+dayLine;return;}
   const myName=loadName();
   const runs=myName?myRuns(myName):[];
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
@@ -796,8 +800,7 @@ function renderBoard(mine){
   if(list.length>BOARD_COLLAPSED)
     html+=`<button class="bmore">${showAll?'Show less':'Show all '+list.length}</button>`;
   html+=rankLine(all,mine);
-  if(saveGaveUp)html+='<div class="bwarn">This run could not be added to the shared board. It is saved on this device &mdash; play again to have another go.</div>';
-  else if(saveFailed)html+='<div class="bwarn">Could not reach the leaderboard &mdash; still trying. This run is saved on this device.</div>';
+  html+=warn;
   if(runs.length>1&&!shown.some(s=>s.name===myName))html+=histBlock(runs,true);
   html+=dayLine;
   board.innerHTML=html;
