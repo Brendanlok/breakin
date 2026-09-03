@@ -36,9 +36,11 @@
   canvas{background:#0d1420;display:block;touch-action:none;
     box-shadow:0 0 80px rgba(80,140,255,.18);border-radius:4px;
     animation:cfade .5s ease-out both;
-    transform-origin:top center;transition:transform .15s ease-out;}
+    /* no transition on this: an environment that does not tick its animation clock never
+       advances it, and the arena silently stays off screen. Instant is also correct here. */
+    transform-origin:top center;}
   @keyframes cfade{from{opacity:0}to{opacity:1}}
-  @media (prefers-reduced-motion:reduce){canvas{animation:none;transition:none;}#hud .st-score.newbest{animation:none;box-shadow:0 0 0 1px rgba(255,210,95,.7);}}
+  @media (prefers-reduced-motion:reduce){canvas{animation:none;}#hud .st-score.newbest{animation:none;box-shadow:0 0 0 1px rgba(255,210,95,.7);}}
   #hud{position:fixed;top:calc(9px + env(safe-area-inset-top,0px));left:0;right:0;display:flex;
     justify-content:center;gap:7px;padding:0 8px;flex-wrap:wrap;pointer-events:none;
     font-variant-numeric:tabular-nums;}
