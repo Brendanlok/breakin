@@ -10,8 +10,11 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
+  // ponytail: only ever touch our own caches. github.io serves courtconnect from the
+  // same origin, and caches are per-origin - an unfiltered sweep here wipes that app's
+  // offline shell (and its sweep wipes ours; that side needs the same guard in its repo).
   e.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k !== C).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('breakin-') && k !== C).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
