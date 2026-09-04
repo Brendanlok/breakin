@@ -77,7 +77,8 @@
   #goSub b{color:#ffd25f;font-weight:700;}
   #overlay.gameover #speed .hint{display:none;}      /* just played — no need to re-explain the slider */
   #overlay.gameover #speed{margin-top:10px;}
-  #overlay.gameover #msg{display:none;}              /* cleared on game over — don't reserve its line */
+  #msg:empty{display:none;}                          /* nothing to say — don't reserve the line */
+  #overlay.gameover #msg{font-size:13px;color:#8592a6;margin:0 0 4px;max-width:270px;}
   /* Game over: Play again sits directly under the result. The three settings blocks
      were already chosen on the menu, so they collapse behind one "Change settings" row. */
   #overlay.gameover #setToggle,#overlay.gameover #speed,
@@ -738,6 +739,7 @@ function post(table,body){
 }
 let errCount=0,lastErrAt=0;
 function reportError(msg,stack){
+  if(!/^https?:$/.test(location.protocol))return;          // file:/data: dev runs must not fill the live crash inbox
   const now=Date.now();
   if(errCount>=5||now-lastErrAt<8000)return;               // don't spam
   errCount++;lastErrAt=now;
@@ -1350,6 +1352,18 @@ function unstick(){
   endGame('Arena sealed');
 }
 
+// Every run ends with a two-word badge. "Boxed in", "Walled off" and "No new blocks" are
+// indistinguishable to someone on their first run, so each ending says what happened.
+const WHY={
+  'Missed the ball':'It slipped past your paddle — one life, one miss.',
+  'Walled off':"The ball got trapped in a pocket it couldn't leave.",
+  'Boxed in':'Solid walls all round — the ball had nothing left to build.',
+  'No new blocks':'Ten seconds of bouncing without building a single block.',
+  'Arena sealed':'You filled the whole arena — a perfect run.',
+  'Something broke':'The game hit an error and had to stop the run.',
+};
+function whyEnded(reason){return WHY[reason]||'';}
+
 function endGame(reason){
   over=true;
   if(mode==='attract')return;             // loop() will quietly restart the demo next frame
@@ -1362,7 +1376,7 @@ function endGame(reason){
   boardExpanded=false;                     // start the game-over board collapsed so the screen stays short
   badgeEl.textContent=reason||'Game over';
   titleEl.textContent='GAME OVER';
-  msgEl.textContent='';
+  msgEl.textContent=whyEnded(reason);   // the badge names the ending; four of the six are meaningless without a line of plain English
   goTime.textContent=secs+'s';goBlk.textContent=blk;goScore.textContent=score;
   goStats.classList.remove('hidden');overlay.classList.add('gameover');
   goSub.innerHTML=`${blk} block${blk===1?'':'s'} &times; ${mult} speed = ${score}`
