@@ -78,6 +78,19 @@
   #overlay.gameover #speed .hint{display:none;}      /* just played — no need to re-explain the slider */
   #overlay.gameover #speed{margin-top:10px;}
   #overlay.gameover #msg{display:none;}              /* cleared on game over — don't reserve its line */
+  /* Game over: Play again sits directly under the result. The three settings blocks
+     were already chosen on the menu, so they collapse behind one "Change settings" row. */
+  #overlay.gameover #setToggle,#overlay.gameover #speed,
+  #overlay.gameover #tctl,#overlay.gameover #sctl{order:1;}
+  #overlay.gameover #homeLink,#overlay.gameover #board,
+  #overlay.gameover #chint,#overlay.gameover #fbLink{order:2;}
+  #overlay.gameover:not(.setopen) #speed,
+  #overlay.gameover:not(.setopen) #tctl,
+  #overlay.gameover:not(.setopen) #sctl{display:none;}
+  #setToggle{display:none;}
+  #overlay.gameover #setToggle{display:block;margin-top:16px;}
+  #overlay.gameover #setToggle::after{content:' be';}
+  #overlay.gameover.setopen #setToggle::after{content:' b4';}
   #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
     padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
@@ -246,7 +259,7 @@
   #gate button{padding:10px 16px;font-size:14px;font-weight:700;border:0;border-radius:9px;cursor:pointer;}
   #gOk{background:#5fb0ff;color:#05121f;}
   #gCancel{background:#1b2637;color:#cdd6e4;}
-  #linkbtn,#fbLink,#homeLink{background:none;border:0;color:#6b7a90;font-size:12px;letter-spacing:.03em;
+  #linkbtn,#fbLink,#homeLink,#setToggle{background:none;border:0;color:#6b7a90;font-size:12px;letter-spacing:.03em;
     cursor:pointer;padding:4px;margin-top:12px;text-decoration:underline;}
   #homeLink{margin-top:14px;font-weight:700;color:#93a1b5;}
   #fbLink.nudge{color:#8fd6a0;text-decoration:none;font-weight:700;}
@@ -526,6 +539,7 @@
       <button id="saveBtn">Save</button>
     </div>
   </div>
+  <button id="setToggle" aria-expanded="false">Change settings</button>
   <div id="speed">
     <span class="slbl">Ball speed &nbsp;&middot;&nbsp; score <b id="multVal">&times;3</b></span>
     <input type="range" id="multSlider" min="1" max="5" step="0.5" value="3">
@@ -569,6 +583,11 @@ const chase=document.getElementById('chase');
 const ctx=canvas.getContext('2d');
 const overlay=document.getElementById('overlay');
 const startBtn=document.getElementById('startBtn');
+const setToggle=document.getElementById('setToggle');
+setToggle.onclick=()=>{
+  const open=overlay.classList.toggle('setopen');
+  setToggle.setAttribute('aria-expanded',open?'true':'false');
+};
 const hud=document.getElementById('hud');
 const hTime=document.getElementById('hTime');
 const hBlocks=document.getElementById('hBlocks');
@@ -1354,6 +1373,8 @@ function endGame(reason){
   shareBtn.classList.toggle('hidden',!lastRun);
   shareOut.classList.add('hidden');
   startBtn.querySelector('.lbl').textContent='Play again';
+  overlay.classList.remove('setopen');            // every run starts with the settings tucked away
+  setToggle.setAttribute('aria-expanded','false');
   homeLink.classList.remove('hidden');
   overlay.classList.remove('hidden');overlay.scrollTop=0;   // land on GAME OVER + how you died, not wherever the menu was left scrolled
   hud.classList.add('hidden');showTpad(false);
