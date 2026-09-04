@@ -89,8 +89,8 @@
   #overlay.gameover:not(.setopen) #sctl{display:none;}
   #setToggle{display:none;}
   #overlay.gameover #setToggle{display:block;margin-top:16px;}
-  #overlay.gameover #setToggle::after{content:' be';}
-  #overlay.gameover.setopen #setToggle::after{content:' b4';}
+  #overlay.gameover #setToggle::after{content:' ▾';}
+  #overlay.gameover.setopen #setToggle::after{content:' ▴';}
   #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
     padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
