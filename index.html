@@ -1131,6 +1131,8 @@ document.getElementById('hBlkLbl').textContent=document.getElementById('goBlkLbl
 let W,H,cell,rows,spawnMaxRow;
 let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,dryMs,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
+let padFx=null;                              // {off,t} — where on the bat the last hit landed. Both trap endings tell the
+                                             // player to centre their hits; nothing showed them where they were hitting.
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 let lastFrameAt=0,lastFrameT=-1;   // when the loop last actually drew — the watchdog reads these
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
@@ -1371,7 +1373,7 @@ function minAngle(){                  // stop the ball crawling along / trapping
 
 function reset(){
   grid=newGrid();                    // starts completely empty
-  flashes.length=0;
+  flashes.length=0;padFx=null;
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;dryMs=0;pending=null;   // one life — a miss ends the game
   saveFailed=false;saveGaveUp=false;
@@ -1452,7 +1454,7 @@ const WHY={
   'Missed the ball':'It slipped past your paddle — one life, one miss.',
   'Walled off':"The ball got trapped in a pocket it couldn't leave — centre your hits to keep it coming back to you.",
   'Boxed in':'Solid walls all round, nothing left to build — centre your hits to stay out of the corners.',
-  'No new blocks':'Ten seconds of bouncing without building a single block.',
+  'No new blocks':'Ten seconds of bouncing without building a single block — angle it into open space to keep building.',
   'Arena sealed':'You filled the whole arena — a perfect run.',
   'Something broke':'The game hit an error and had to stop the run.',
 };
@@ -1737,6 +1739,7 @@ function step(dt){
     const pyv=paddleY();
     if(ball.vy>0&&ball.y+ball.r>=pyv&&ball.y+ball.r<=pyv+cell*0.7&&Math.abs(ball.x-paddle.x)<=paddle.w/2+ball.r){
       const off=(ball.x-paddle.x)/(paddle.w/2);
+      padFx={off:clamp(off,-1,1),t:performance.now()};
       ball.vx=ball.vx+off*1.5;
       ball.vy=-Math.abs(ball.vy);
       setSpeed();
@@ -1791,11 +1794,28 @@ function draw(){
       ctx.restore();
     }
   }
-  ctx.fillStyle='#dfe9f7';
   const pw=paddle.w,ph=Math.max(8,cell*0.28),px=paddle.x-pw/2,py=paddleY(),rr=6;
-  ctx.beginPath();ctx.moveTo(px+rr,py);
-  ctx.arcTo(px+pw,py,px+pw,py+ph,rr);ctx.arcTo(px+pw,py+ph,px,py+ph,rr);
-  ctx.arcTo(px,py+ph,px,py,rr);ctx.arcTo(px,py,px+pw,py,rr);ctx.closePath();ctx.fill();
+  const pPath=new Path2D();               // built once: filled as the bat, reused to clip the contact mark inside it
+  pPath.moveTo(px+rr,py);
+  pPath.arcTo(px+pw,py,px+pw,py+ph,rr);pPath.arcTo(px+pw,py+ph,px,py+ph,rr);
+  pPath.arcTo(px,py+ph,px,py,rr);pPath.arcTo(px,py,px+pw,py,rr);pPath.closePath();
+  ctx.fillStyle='#dfe9f7';ctx.fill(pPath);
+  if(padFx){                              // the contact mark: cyan dead centre, hot orange out at the tip.
+    const e=1-(performance.now()-padFx.t)/420;          // it rides the bat, so it reads as "you hit HERE", not "the ball was there"
+    if(e<=0)padFx=null;
+    else{
+      // hue climbs the LONG way round (cyan -> violet -> hot orange): the short way runs through
+      // green at half-offset, and a green "you are fine" at the exact point the ball starts flying wide
+      // teaches the opposite of the truth. This way also matches the arena's own blue-to-red gradient.
+      const a=Math.abs(padFx.off),hue=Math.round(196+186*a)%360,mw=Math.max(6,pw*0.13);
+      ctx.save();ctx.clip(pPath);
+      ctx.globalAlpha=Math.min(1,e*1.6);
+      ctx.fillStyle=`hsl(${hue} 100% 55%)`;
+      ctx.shadowColor=`hsl(${hue} 100% 60%)`;ctx.shadowBlur=14*e;
+      ctx.fillRect(paddle.x+padFx.off*pw/2-mw/2,py,mw,ph);
+      ctx.restore();
+    }
+  }
   // the ball heats toward red and a ring closes over it while a timeout ending is counting down
   const dgr=Math.max(0,Math.min(1,Math.max((stuckMs-800)/1200,(noPlace-24)/16,(dryMs-7000)/3000)));
   ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
