@@ -1041,8 +1041,8 @@ shareBtn.addEventListener('click',async()=>{
   const text=`Breakin — ${score} (${blocks} block${blocks===1?'':'s'} × ${mult} speed). Can you beat it?`;
   const url=location.origin+location.pathname;
   const full=text+' '+url;
-  const say=t=>{shareBtn.textContent=t;shareBtn.classList.add('done');
-    setTimeout(()=>{shareBtn.textContent='Share your score';shareBtn.classList.remove('done');},1900);};
+  const say=(t,stick)=>{shareBtn.textContent=t;shareBtn.classList.add('done');
+    if(!stick)setTimeout(()=>{shareBtn.textContent='Share your score';shareBtn.classList.remove('done');},1900);};
   if(navigator.share){
     try{await navigator.share({title:'Breakin',text,url});return;}
     catch(e){if(e&&e.name==='AbortError')return;}   // they closed the sheet on purpose — don't silently copy instead
@@ -1052,7 +1052,7 @@ shareBtn.addEventListener('click',async()=>{
     shareOut.value=full;shareOut.classList.remove('hidden');
     shareOut.focus();shareOut.setSelectionRange(0,full.length);
     shareOut.scrollLeft=0;                 // selecting scrolls to the end — show the score, not the tail of the URL
-    say('Copy the text below');
+    say('Copy the text below',true);   // the box stays open, so the label must stay with it
   }
 });
 const fbName=document.getElementById('fbName');
@@ -1410,6 +1410,7 @@ function endGame(reason){
   goSub.classList.remove('hidden');
   lastRun=score>0?{score,blocks:blk,mult}:null;   // a 0-block run is nothing to brag about
   shareBtn.classList.toggle('hidden',!lastRun);
+  shareBtn.textContent='Share your score';shareBtn.classList.remove('done');   // a sticky label from the last run must not carry over
   shareOut.classList.add('hidden');
   startBtn.querySelector('.lbl').textContent='Play again';
   overlay.classList.remove('setopen');            // every run starts with the settings tucked away
@@ -1489,8 +1490,12 @@ function maybeShowPtip(){
   if(!seenTip(INV_TIP))return;
   // one tip per run, in order of need. On a keyboard nothing on screen says how to move, so that
   // comes first and pause waits for run two. Touch already shows the arrows, so it only needs pause.
-  const tips=isTouch?[['breakin-ptip','tap the top to pause']]
-                    :[['breakin-ptip-move','move with ← → or A D'],['breakin-ptip-kb','press Esc to pause']];
+  // Where the ball meets the paddle steers vx (see the paddle branch in step), and that offset is
+  // the single biggest score lever in the game - centre-tracking scores about a third of what an
+  // off-centre hit does. Nothing on screen hints at it, so it outranks the pause tip on both.
+  const ANGLE=['breakin-ptip-angle','off-centre paddle hits build faster'];
+  const tips=isTouch?[ANGLE,['breakin-ptip','tap the top to pause']]
+                    :[['breakin-ptip-move','move with ← → or A D'],ANGLE,['breakin-ptip-kb','press Esc to pause']];
   const tip=tips.find(t=>!seenTip(t[0]));
   if(!tip)return;
   markTip(tip[0]);
