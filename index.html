@@ -1241,11 +1241,12 @@ if(isTouch){
 let sfxOn=true, actx=null, lastSfx=0;
 try{sfxOn=localStorage.getItem('breakin-sfx')!=='0';}catch(e){}
 const SFX={wall:[300,.05,'square',.09],solid:[470,.06,'square',.11],
-           paddle:[720,.09,'triangle',.17],over:[240,.55,'sawtooth',.15]};
+           paddle:[720,.09,'triangle',.17],over:[240,.55,'sawtooth',.15],
+           pass:[880,.13,'triangle',.15]};
 function sfx(kind,force){
   if(!sfxOn||(mode==='attract'&&!force))return;   // the menu demo must never make noise on page load
   const now=performance.now();
-  if(kind!=='over'&&now-lastSfx<28)return;        // a fast rally shouldn't stack into a buzz
+  if(kind!=='over'&&kind!=='pass'&&now-lastSfx<28)return;   // a fast rally shouldn't stack into a buzz
   lastSfx=now;
   try{
     if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();
@@ -1315,6 +1316,20 @@ function armHudChase(){
   if(runBest)s.add(runBest);
   chaseTargets.push(...[...s].sort((a,b)=>a-b));
 }
+// Overtaking a name on the board is the biggest thing that happens in a one-life run, and it used
+// to pass in silence - the only tell was a tiny label going from "next 24" to "next 41". Announce
+// the highest row crossed this tick. Guarded on the previous score, not a seen-list, so a board
+// that refreshes mid-run and drops in a row you are already above stays quiet.
+function announcePass(score,prev){
+  if(versus)return;
+  const list=currentBoard().slice(0,5);
+  let top=null;
+  for(const s of list)if(s.score>prev&&score>=s.score&&(!top||s.score>top.score))top=s;
+  if(!top)return;
+  vsToast(top===list[0]?'Top of the board — passed '+top.name:'Passed '+top.name+' · '+top.score,1900);
+  sfx('pass');
+}
+
 function hudChaseLbl(score){        // true = the tile label is ours this run
   if(!chaseTargets.length)return false;
   if(!chase.classList.contains('hidden')){   // wide enough for the panel - it says it better
@@ -1813,7 +1828,7 @@ function frame(t){
     hBlocks.textContent=placed;
     const liveScore=Math.round(placed*mult);
     hScore.textContent=liveScore;
-    if(liveScore!==chaseScore){chaseScore=liveScore;renderChase(liveScore);hudChaseLbl(liveScore);}
+    if(liveScore!==chaseScore){const prev=chaseScore;chaseScore=liveScore;renderChase(liveScore);hudChaseLbl(liveScore);announcePass(liveScore,prev);}
     if(runBest&&!beatBest&&liveScore>runBest){
       beatBest=true;
       hudScore.classList.add('newbest');
@@ -1866,12 +1881,12 @@ const vsCd=document.getElementById('vsCd');
 const vsCdNum=document.getElementById('vsCdNum');
 const vsMsg=document.getElementById('vsMsg');
 let vsMsgT=0;
-function vsToast(text){                       // brief centred match callout (opponent finished / lead change)
+function vsToast(text,ms){                    // brief centred match callout (opponent finished / lead change)
   vsMsg.textContent=text;
   vsMsg.classList.remove('hidden');
   requestAnimationFrame(()=>vsMsg.classList.add('show'));
   clearTimeout(vsMsgT);
-  vsMsgT=setTimeout(()=>{vsMsg.classList.remove('show');setTimeout(()=>vsMsg.classList.add('hidden'),350);},3200);
+  vsMsgT=setTimeout(()=>{vsMsg.classList.remove('show');setTimeout(()=>vsMsg.classList.add('hidden'),350);},ms||3200);
 }
 
 const CODE_ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no I L O / 0 1 - unambiguous read aloud or typed
