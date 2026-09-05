@@ -772,6 +772,17 @@ const currentBoard=()=>(remoteBoardFor()||localBoardFor()).slice().sort(rankCmp)
 // One quiet line under the board: where you stand, and how big the field is. Without it a
 // three-row board reads as broken rather than as a young game, and anyone outside the top 10
 // learns nothing about how they did.
+// There is no sign-in, so a name is not an identity: two players can pick the same one.
+// Matching a board row on the name alone hands a stranger's standing back to you as your own
+// (a 30-point run was being told "You are #1" off someone else's 285). A row only counts as
+// yours if its score is one this device actually played.
+function myRowIdx(list,nm,mine){
+  if(!nm)return -1;
+  const played=new Set(loadLocal().filter(s=>s.name===nm).map(s=>s.score));
+  if(mine&&mine.name===nm)played.add(mine.score);   // the run just saved, even if localStorage refused the write
+  return list.findIndex(s=>s.name===nm&&played.has(s.score));   // first match = your best run, as before
+}
+
 function rankLine(all,mine){
   const players=new Set(all.map(s=>s.name)).size;      // rows are runs now, so the field is the distinct names
   // Offline (or before the backend exists) this list is only what THIS device played, so a bare
@@ -781,7 +792,7 @@ function rankLine(all,mine){
   const field=local?players+' player'+(players===1?'':'s')+' on this device'
     :players+' player'+(players===1?'':'s')+(boardView==='today'?' today':' so far');
   const nm=(mine&&mine.name)||loadName();
-  const i=nm?all.findIndex(s=>s.name===nm):-1;         // sorted best-first, so this is your best run
+  const i=myRowIdx(all,nm,mine);                       // sorted best-first, so this is your best run
   return '<div class="brank">'+(i<0?field:'You are <b>#'+(i+1)+'</b> &middot; '+field)+'</div>';
 }
 
@@ -819,7 +830,7 @@ function renderBoard(mine){
   const mineIdx=hl?list.findIndex(s=>s.name===hl.name&&s.score===hl.score):-1;
   const showAll=boardExpanded||mineIdx>=BOARD_COLLAPSED;   // never hide the player's own fresh score
   const shown=showAll?list:list.slice(0,BOARD_COLLAPSED);
-  const myTop=myName?list.findIndex(s=>s.name===myName):-1;   // your highest row; the rest are your other runs
+  const myTop=myRowIdx(list,myName);                          // your highest row; the rest are your other runs
   html+='<div class="grid"><span class="head h-l">#</span><span class="head h-l">name</span>'
     +'<span class="head h-r">date</span><span class="head h-r">score</span>';
   html+=shown.map((s,i)=>{
