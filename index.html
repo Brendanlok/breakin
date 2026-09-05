@@ -1884,7 +1884,7 @@ let vsMsgT=0;
 function vsToast(text,ms){                    // brief centred match callout (opponent finished / lead change)
   vsMsg.textContent=text;
   vsMsg.classList.remove('hidden');
-  requestAnimationFrame(()=>vsMsg.classList.add('show'));
+  void vsMsg.offsetWidth;vsMsg.classList.add('show');   // reflow, not rAF - the fade still runs when the tab throttles rAF
   clearTimeout(vsMsgT);
   vsMsgT=setTimeout(()=>{vsMsg.classList.remove('show');setTimeout(()=>vsMsg.classList.add('hidden'),350);},ms||3200);
 }
