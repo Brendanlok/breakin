@@ -270,6 +270,8 @@
   #shareOut{margin:8px auto 0;display:block;width:min(300px,88vw);box-sizing:border-box;
     padding:9px 12px;font-size:16px;font-family:inherit;text-align:center;border-radius:9px;
     border:1px solid #33455f;background:#0b1220;color:#cdd6e4;outline:none;}
+  #shareImg{margin:9px auto 0;display:block;width:min(184px,46vw);height:auto;
+    border-radius:10px;border:1px solid #2b3a52;}
   #fb{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
     background:rgba(4,7,11,.82);padding:20px;}
   #fb .fbpanel{background:#0d1420;border:1px solid #2b3a52;border-radius:14px;padding:18px;
@@ -533,6 +535,7 @@
   <div id="goSub" class="hidden"></div>
   <button id="shareBtn" class="hidden">Share your score</button>
   <input id="shareOut" class="hidden" readonly aria-label="Your score, ready to copy">
+  <img id="shareImg" class="hidden" alt="The arena your run built, as a picture you can save">
   <div id="nameEntry" class="hidden">
     <div class="ne-label">&#9733; You made the leaderboard</div>
     <div class="ne-row">
@@ -1033,6 +1036,36 @@ const homeLink=document.getElementById('homeLink');
 homeLink.addEventListener('click',()=>startAttract());   // game over -> back to the start screen
 // Share your score — one tap turns a finished run into a post. Native share sheet on mobile, clipboard on desktop.
 let lastRun=null;
+const shareImg=document.getElementById('shareImg');
+let shareImgURL='';
+function hideShareImg(){shareImg.classList.add('hidden');shareImg.removeAttribute('src');
+  if(shareImgURL){URL.revokeObjectURL(shareImgURL);shareImgURL='';}}
+function showShareImg(file){hideShareImg();shareImgURL=URL.createObjectURL(file);
+  shareImg.src=shareImgURL;shareImg.classList.remove('hidden');}
+// Draw the finished arena as a poster: same palette as the game, score underneath, link at the foot.
+function cardFile(run){
+  const F='-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+  const g0=42,pad=42,head=104,foot=150;
+  const nr=+String(run.grid||'').split(':')[1]||ROWS;
+  const mini=document.createElement('canvas');
+  mini.width=COLS*g0;mini.height=nr*g0;
+  drawMini(mini,run.grid);                       // ponytail: same renderer the opponent view uses
+  const cv=document.createElement('canvas');
+  cv.width=mini.width+pad*2;cv.height=head+mini.height+foot;
+  const g=cv.getContext('2d'),mid=cv.width/2;
+  g.fillStyle='#070c14';g.fillRect(0,0,cv.width,cv.height);
+  g.textAlign='center';
+  g.fillStyle='#ffd25f';g.font='800 34px '+F;g.fillText('BREAKIN',mid,54);
+  g.fillStyle='#7f8ca0';g.font='600 17px '+F;g.fillText('Breakout, in reverse',mid,80);
+  g.drawImage(mini,pad,head);
+  const y=head+mini.height;
+  g.fillStyle='#e8edf4';g.font='800 62px '+F;g.fillText(run.score,mid,y+72);
+  g.fillStyle='#7f8ca0';g.font='600 19px '+F;
+  g.fillText(run.blocks+' block'+(run.blocks===1?'':'s')+' × '+run.mult+' speed',mid,y+104);
+  g.fillStyle='#5b6a80';g.font='600 16px '+F;
+  g.fillText('brendanlok.github.io/breakin',mid,y+134);
+  return new Promise((res,rej)=>cv.toBlob(b=>b?res(new File([b],'breakin.png',{type:'image/png'})):rej(),'image/png'));
+}
 const shareBtn=document.getElementById('shareBtn');
 const shareOut=document.getElementById('shareOut');
 shareBtn.addEventListener('click',async()=>{
@@ -1043,11 +1076,20 @@ shareBtn.addEventListener('click',async()=>{
   const full=text+' '+url;
   const say=(t,stick)=>{shareBtn.textContent=t;shareBtn.classList.add('done');
     if(!stick)setTimeout(()=>{shareBtn.textContent='Share your score';shareBtn.classList.remove('done');},1900);};
+  // The mosaic the run left behind is the best thing about a finished game — share the picture, not just a number.
+  let file=null;
+  try{file=await cardFile(lastRun);}catch(e){}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],text:full});return;}
+    catch(e){if(e&&e.name==='AbortError')return;}
+  }
   if(navigator.share){
     try{await navigator.share({title:'Breakin',text,url});return;}
     catch(e){if(e&&e.name==='AbortError')return;}   // they closed the sheet on purpose — don't silently copy instead
   }
-  try{await navigator.clipboard.writeText(full);shareOut.classList.add('hidden');say('Copied — paste it anywhere');}
+  if(file)showShareImg(file);                 // no share sheet here — hand over the picture to save by hand
+  try{await navigator.clipboard.writeText(full);shareOut.classList.add('hidden');
+    say(file?'Copied — save the picture below':'Copied — paste it anywhere',!!file);}
   catch(e){                                  // embedded browsers block the clipboard — hand over the text instead of an apology
     shareOut.value=full;shareOut.classList.remove('hidden');
     shareOut.focus();shareOut.setSelectionRange(0,full.length);
@@ -1408,10 +1450,10 @@ function endGame(reason){
     +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`
       :bestShown>0?` &nbsp;&middot;&nbsp; best ${bestShown}`:'');
   goSub.classList.remove('hidden');
-  lastRun=score>0?{score,blocks:blk,mult}:null;   // a 0-block run is nothing to brag about
+  lastRun=score>0?{score,blocks:blk,mult,grid:encGrid()}:null;   // keep the finished mosaic — the share picture is drawn from it   // a 0-block run is nothing to brag about
   shareBtn.classList.toggle('hidden',!lastRun);
   shareBtn.textContent='Share your score';shareBtn.classList.remove('done');   // a sticky label from the last run must not carry over
-  shareOut.classList.add('hidden');
+  shareOut.classList.add('hidden');hideShareImg();
   startBtn.querySelector('.lbl').textContent='Play again';
   overlay.classList.remove('setopen');            // every run starts with the settings tucked away
   setToggle.setAttribute('aria-expanded','false');
@@ -1451,7 +1493,7 @@ function startAttract(){                   // demo playing behind the menu
     +(loadBest()>0?`<br><span style="color:#7f8ca0;font-size:13px">Your best <b style="color:#ffd25f">${loadBest()}</b></span>`:'');
   goStats.classList.add('hidden');goSub.classList.add('hidden');overlay.classList.remove('gameover');
   shareBtn.classList.add('hidden');
-  shareOut.classList.add('hidden');
+  shareOut.classList.add('hidden');hideShareImg();
   startBtn.querySelector('.lbl').textContent='Play solo';
   homeLink.classList.add('hidden');
   overlay.classList.remove('hidden');overlay.scrollTop=0;   // menu always opens at the title
