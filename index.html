@@ -1461,7 +1461,7 @@ function whyEnded(reason){return WHY[reason]||'';}
 function endGame(reason){
   over=true;
   if(mode==='attract')return;             // loop() will quietly restart the demo next frame
-  mode='over';sfx('over');
+  mode='over';sfx('over');hidePtip();
   if(versus){vsEndGame(reason);return;}   // competitive: own result flow, no leaderboard / personal-best
   const secs=Math.floor(elapsed), blk=placed, score=Math.round(blk*mult);
   const prevBest=loadBest(), newBest=score>0&&score>prevBest;
@@ -1546,10 +1546,16 @@ const ptip=document.getElementById('ptip');
 const INV_TIP='breakin-ptip-inv';
 function seenTip(k){try{return !!localStorage.getItem(k);}catch(e){return true;}}   // storage blocked: treat as seen, so no tip repeats every run
 function markTip(k){try{localStorage.setItem(k,'1');}catch(e){}}
+let ptipT=0;
+// The tip is pinned to the viewport at 94px and only its own timer ever took it down, so a tip
+// still running when the run ended sat on top of the GAME OVER title. Anything that leaves the
+// play screen has to clear it, and a new tip has to cancel the old tip's timers.
+function hidePtip(){clearTimeout(ptipT);ptip.classList.remove('show');ptip.classList.add('hidden');}
 function showPtip(text){
+  clearTimeout(ptipT);
   ptip.textContent=text;
   ptip.classList.remove('hidden');void ptip.offsetWidth;ptip.classList.add('show');   // reflow, not rAF — the fade still runs when the tab throttles rAF
-  setTimeout(()=>{ptip.classList.remove('show');setTimeout(()=>ptip.classList.add('hidden'),600);},2800);
+  ptipT=setTimeout(()=>{ptip.classList.remove('show');ptipT=setTimeout(()=>ptip.classList.add('hidden'),600);},2800);
 }
 function maybeShowPtip(){
   if(versus)return;
@@ -1586,7 +1592,7 @@ function showPausePanel(which){          // 'menu' | 'confirm' | 'count'
 }
 function pauseGame(){
   if(mode!=='play')return;
-  paused=true;resumeIn=0;heldDir=0;held.clear();
+  paused=true;resumeIn=0;heldDir=0;held.clear();hidePtip();
   showPausePanel('menu');
   pauseEl.classList.remove('hidden');
   hud.classList.add('hidden');showTpad(false);
