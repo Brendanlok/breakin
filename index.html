@@ -628,7 +628,12 @@ const MAXBOARD=10;
 const LB_URL='https://ekcnpuwclkjnqnntlvot.supabase.co/rest/v1/breakin_scores';
 const LB_KEY='sb_publishable_pfng2gwF0IdAZfwbwhWPWQ_bfHOMIAC';  // Supabase publishable key — public by design, table is RLS-guarded
 const RPC_URL=LB_URL.replace(/\/[^/]+$/,'/rpc/breakin_admin');
-const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20;
+// The shared board is for the real site only. A copy opened from file:// or a data: URL is a dev
+// run, and until now those could still POST scores — that is how the bot rows 07-delete-bot-scores.sql
+// had to clear got onto the live board. The crash/feedback inbox already refused non-https; the
+// board did not. Gating it here covers reading and writing at once, and the board then honestly
+// labels itself "this device" on a dev copy instead of faking a shared one.
+const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20&&location.protocol==='https:';
 // ponytail: ?dev=1 (or #dev) reads the live board but writes nothing - lets a test session play the deployed build without posting scores or crash reports.
 const DEV=/[?&#]dev(=1|\b)/.test(location.href);
 
@@ -769,7 +774,12 @@ const currentBoard=()=>(remoteBoardFor()||localBoardFor()).slice().sort(rankCmp)
 // learns nothing about how they did.
 function rankLine(all,mine){
   const players=new Set(all.map(s=>s.name)).size;      // rows are runs now, so the field is the distinct names
-  const field=players+' player'+(players===1?'':'s')+(boardView==='today'?' today':' so far');
+  // Offline (or before the backend exists) this list is only what THIS device played, so a bare
+  // "You are #1 · 2 players so far" claims a standing on the shared board that nobody checked.
+  // Say which board is being ranked instead of quietly ranking the wrong one.
+  const local=!remoteBoardFor();
+  const field=local?players+' player'+(players===1?'':'s')+' on this device'
+    :players+' player'+(players===1?'':'s')+(boardView==='today'?' today':' so far');
   const nm=(mine&&mine.name)||loadName();
   const i=nm?all.findIndex(s=>s.name===nm):-1;         // sorted best-first, so this is your best run
   return '<div class="brank">'+(i<0?field:'You are <b>#'+(i+1)+'</b> &middot; '+field)+'</div>';
