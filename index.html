@@ -1042,6 +1042,8 @@ function hideShareImg(){shareImg.classList.add('hidden');shareImg.removeAttribut
   if(shareImgURL){URL.revokeObjectURL(shareImgURL);shareImgURL='';}}
 function showShareImg(file){hideShareImg();shareImgURL=URL.createObjectURL(file);
   shareImg.src=shareImgURL;shareImg.classList.remove('hidden');}
+// How much of the arena the run walled in — the number the shared picture actually shows, so text and card agree.
+const sealPct=n=>Math.round(n/CAP*100)+'%';   // ponytail: no <1% case — one block already rounds to 1%
 // Draw the finished arena as a poster: same palette as the game, score underneath, link at the foot.
 function cardFile(run){
   const F='-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
@@ -1061,7 +1063,7 @@ function cardFile(run){
   const y=head+mini.height;
   g.fillStyle='#e8edf4';g.font='800 62px '+F;g.fillText(run.score,mid,y+72);
   g.fillStyle='#7f8ca0';g.font='600 19px '+F;
-  g.fillText(run.blocks+' block'+(run.blocks===1?'':'s')+' × '+run.mult+' speed',mid,y+104);
+  g.fillText(run.blocks+' block'+(run.blocks===1?'':'s')+' × '+run.mult+' speed  ·  '+sealPct(run.blocks)+' sealed',mid,y+104);
   g.fillStyle='#5b6a80';g.font='600 16px '+F;
   g.fillText('brendanlok.github.io/breakin',mid,y+134);
   return new Promise((res,rej)=>cv.toBlob(b=>b?res(new File([b],'breakin.png',{type:'image/png'})):rej(),'image/png'));
@@ -1071,7 +1073,7 @@ const shareOut=document.getElementById('shareOut');
 shareBtn.addEventListener('click',async()=>{
   if(!lastRun)return;
   const {score,blocks,mult}=lastRun;
-  const text=`Breakin — ${score} (${blocks} block${blocks===1?'':'s'} × ${mult} speed). Can you beat it?`;
+  const text=`Breakin — ${score}, sealed ${sealPct(blocks)} of the arena (${blocks} block${blocks===1?'':'s'} × ${mult} speed). Can you beat it?`;
   const url=location.origin+location.pathname;
   const full=text+' '+url;
   const say=(t,stick)=>{shareBtn.textContent=t;shareBtn.classList.add('done');
