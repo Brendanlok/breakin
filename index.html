@@ -395,7 +395,7 @@
 <div id="wrap"><canvas id="c"></canvas></div>
 <div id="hud" class="hidden">
   <div class="stat st-time"><b id="hTime">0</b><i>time</i></div>
-  <div class="stat st-blocks"><b id="hBlocks">0</b><i>blocks</i></div>
+  <div class="stat st-blocks"><b id="hBlocks">0</b><i id="hBlkLbl">blocks</i></div>
   <div class="stat st-score" id="hudScore"><b id="hScore">0</b><i id="hScoreLbl">score</i></div>
   <div class="stat st-opp hidden" id="hudOpp"><b id="hOpp">0</b><i id="hOppName">rival</i></div>
   <button id="hSfx" class="stat st-sfx" type="button" aria-label="Toggle sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3.5L12 5.5v13L7.5 15H4z"/><path class="wv" d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path class="sl" d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></svg></button>
@@ -529,7 +529,7 @@
   <p id="msg">The ball builds walls instead of breaking them. Every bounce off the arena leaves a block behind &mdash; survive as the space closes in.</p>
   <div id="goStats" class="hidden">
     <div class="gostat st-time"><b id="goTime">0</b><i>time</i></div>
-    <div class="gostat st-blocks"><b id="goBlk">0</b><i>blocks</i></div>
+    <div class="gostat st-blocks"><b id="goBlk">0</b><i id="goBlkLbl">blocks</i></div>
     <div class="gostat st-score"><b id="goScore">0</b><i>score</i></div>
   </div>
   <div id="goSub" class="hidden"></div>
@@ -1121,6 +1121,11 @@ fbSend.addEventListener('click',async()=>{
 
 const COLS=11;
 const ROWS=19;                        // grid is always 11 x 19 — identical cell count on phone and desktop; only the pixel size of a cell changes
+const CAP=(ROWS-1)*COLS;              // the arena holds exactly this many blocks — the bottom row is the paddle strip, which never fills
+const SEAL_MARKS=[10,25,50,75];       // shout the crossings; a perfect run has never passed ~52%, so 75 is the far edge, not a formality
+// Until now the blocks tally was a number with no scale: 20 could have been 1% or 90%, and
+// "Arena sealed" read as a win state that did not exist. The denominator is the whole fix.
+document.getElementById('hBlkLbl').textContent=document.getElementById('goBlkLbl').textContent='of '+CAP;
 let W,H,cell,rows,spawnMaxRow;
 let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,dryMs,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
@@ -1405,6 +1410,11 @@ function resolvePending(){
     if(placed===1&&mode==='play'&&!versus&&!seenTip(INV_TIP)){markTip(INV_TIP);showPtip('bounces build — blocks never break');}
     ball.speed=Math.min(ball.base*1.9,ball.base*(1+placed*0.012));
     setSpeed();
+    // ponytail: no latch needed — placed only ever goes up by one, so each mark is hit exactly once a run
+    if(mode==='play'&&!versus){
+      const mark=SEAL_MARKS.find(m=>placed===Math.round(CAP*m/100));
+      if(mark)showPtip(mark===75?'75% sealed — the arena is closing in':mark+'% of the arena sealed');
+    }
     if(empties<=0)endGame('Arena sealed');
   }else if(++pending.age>50){
     pending=null;                                       // ball lingered in that cell — skip this bounce
