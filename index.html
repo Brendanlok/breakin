@@ -598,7 +598,7 @@ const hScoreLbl=document.getElementById('hScoreLbl');
 let runBest=0,beatBest=false;
 // the HUD shows bare numbers only — the stored best is tracked silently so the tile can flip to NEW BEST
 function armBest(on){
-  runBest=on?loadBest():0;beatBest=false;
+  runBest=on?loadBest():0;beatBest=false;chaseTargets.length=0;
   hudScore.classList.remove('newbest');hScoreLbl.textContent='score';
 }
 const multSlider=document.getElementById('multSlider');
@@ -1241,7 +1241,7 @@ function showTpad(on){tpad.classList.toggle('hidden',!(on&&isTouch&&touchCtl==='
 // "Chasing" panel — the scores above you, in the dead space beside the arena. Solo play only,
 // and only when the window is actually wide enough to hold it without crowding the arena.
 const CHASE_W=176, CHASE_GAP=26;
-let chaseScore=-1;
+let chaseScore=-1, chaseTargets=[];
 function renderChase(score){
   const list=currentBoard().slice(0,5);
   if(!list.length)return;
@@ -1254,9 +1254,34 @@ function renderChase(score){
 function placeChase(){
   if(mode!=='play'){chase.classList.add('hidden');return;}   // also keeps `versus` out of reach before it is declared
   const r=canvas.getBoundingClientRect(), left=r.left-CHASE_GAP-CHASE_W;
-  if(versus||left<12||!currentBoard().length){chase.classList.add('hidden');return;}
-  chase.style.left=left+'px';chase.style.top=r.top+'px';
-  chase.classList.remove('hidden');
+  if(versus||left<12||!currentBoard().length)chase.classList.add('hidden');
+  else{
+    chase.style.left=left+'px';chase.style.top=r.top+'px';
+    chase.classList.remove('hidden');
+  }
+  hudChaseLbl(chaseScore);          // panel just appeared or vanished (rotate) - the tile follows it
+}
+
+// The panel above needs 176px of dead space beside the arena, so on a phone it never shows and a
+// run says nothing about how close you are to the board. The score tile's own label carries it
+// there instead: no extra chrome to overlap the arena, which is the layout that keeps breaking.
+// Targets are the top of the board plus your own best, so passing your best advances it too.
+function armHudChase(){
+  chaseTargets.length=0;
+  if(versus)return;
+  const s=new Set(currentBoard().slice(0,5).map(x=>x.score));
+  if(runBest)s.add(runBest);
+  chaseTargets.push(...[...s].sort((a,b)=>a-b));
+}
+function hudChaseLbl(score){        // true = the tile label is ours this run
+  if(!chaseTargets.length)return false;
+  if(!chase.classList.contains('hidden')){   // wide enough for the panel - it says it better
+    hScoreLbl.textContent=beatBest?'new best':'score';
+    return false;
+  }
+  const next=chaseTargets.find(t=>t>score);
+  hScoreLbl.textContent=next?'next '+next:'leading';
+  return true;
 }
 
 const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
@@ -1442,7 +1467,7 @@ function startPlay(){
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');
   hud.classList.remove('hidden');showTpad(true);armBest(true);
   fit();reset();kick();
-  chaseScore=0;renderChase(0);placeChase();
+  chaseScore=0;armHudChase();renderChase(0);placeChase();
   maybeShowPtip();
 }
 
@@ -1741,10 +1766,11 @@ function frame(t){
     hBlocks.textContent=placed;
     const liveScore=Math.round(placed*mult);
     hScore.textContent=liveScore;
-    if(liveScore!==chaseScore){chaseScore=liveScore;renderChase(liveScore);}
+    if(liveScore!==chaseScore){chaseScore=liveScore;renderChase(liveScore);hudChaseLbl(liveScore);}
     if(runBest&&!beatBest&&liveScore>runBest){
       beatBest=true;
-      hudScore.classList.add('newbest');hScoreLbl.textContent='new best';
+      hudScore.classList.add('newbest');
+      if(!hudChaseLbl(liveScore))hScoreLbl.textContent='new best';   // the gold pulse already says it on a phone
     }
     if(versus)vsRenderBar();               // keep ahead/behind + the "you overtook them" callout live, not just on the 1.3s poll
   }
