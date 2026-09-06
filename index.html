@@ -644,10 +644,14 @@ const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20&&location.proto
 // ponytail: ?dev=1 (or #dev) reads the live board but writes nothing - lets a test session play the deployed build without posting scores or crash reports.
 const DEV=/[?&#]dev(=1|\b)/.test(location.href);
 // The arena a run built is worth showing on the board, but the column that holds it only exists
-// after 13-leaderboard-grid.sql has been run. Ask for it once; if the server refuses, drop the
-// field from every read and write for the rest of the session and the board is exactly what it
-// was before. ponytail: one flag, no probe request - the first real fetch is the probe.
-let lbGrid=true;
+// after 13-leaderboard-grid.sql has been run on the database. Asking for a column that is not
+// there is handled - the fallbacks in lbFetch/lbSubmit drop the field and carry on, nothing is
+// lost - but it logs a 400 in every visitor's console, and a clean console is worth more before
+// launch than a feature that is waiting on a migration anyway.
+// >>> SET THIS TO true IN THE SAME CHANGE THAT CONFIRMS 13-leaderboard-grid.sql HAS BEEN RUN. <<<
+// Until then your own arenas still show on the this-device board; only other players' are absent.
+// ponytail: one constant, no probe request. The runtime fallback below stays as the net.
+let lbGrid=false;
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pad2=n=>String(n).padStart(2,'0');

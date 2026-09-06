@@ -23,3 +23,8 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- The existing insert policy on breakin_scores is column-agnostic, so it already covers this.
+
+-- AFTER RUNNING THIS: index.html has `let lbGrid=false;` near the top of the leaderboard section.
+-- It has to be flipped to true in a commit before other players' arenas appear on the board — the
+-- client deliberately does not go looking for the column, so that a database without it never puts
+-- a 400 in anyone's console. Everything else is already in place.
