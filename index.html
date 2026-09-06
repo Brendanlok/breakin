@@ -2436,7 +2436,10 @@ function vsAbort(){
   if(wasVersus||!overlay.classList.contains('hidden'))vsFarewell('The other player left');
 }
 
-document.getElementById('competeBtn').addEventListener('click',()=>{cNameIn.value=loadName()||randomName();openCompete('choice');});
+document.getElementById('competeBtn').addEventListener('click',()=>{
+  if(unsavedGuard())return;              // third way off the game-over card, and it sits under the name box too:
+                                         // starting a match hides the name entry for good, so the score would just vanish
+  cNameIn.value=loadName()||randomName();openCompete('choice');});
 document.getElementById('cInvite').addEventListener('click',startInvite);
 document.getElementById('cJoin').addEventListener('click',()=>{resetJoinView();cCodeIn.value='';showCView('join');setTimeout(()=>cCodeIn.focus(),30);});
 cStart.addEventListener('click',hostStart);
