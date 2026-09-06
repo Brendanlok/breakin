@@ -721,9 +721,13 @@ async function lbFetch(todayOnly){
   try{
     // secs comes back too: the board ranks a tie by who got there faster
     const f=todayOnly?'&created_at=gte.'+dayStartISO():'';
-    const sel='name,score,secs,mult,'+(lbGrid?'grid,':'')+'created_at';
+    // Both boards are fetched at once, so this must retry on what THIS request asked for, not on
+    // the flag as it stands when the answer arrives: the other request can have cleared it first,
+    // and then this one would give up and report an offline board that is really just fine.
+    const want=lbGrid;
+    const sel='name,score,secs,mult,'+(want?'grid,':'')+'created_at';
     const r=await fetch(LB_URL+'?select='+sel+'&order=score.desc,secs.asc,created_at.asc&limit='+LB_LIMIT+f,{headers:{apikey:LB_KEY}});
-    if(!r.ok&&lbGrid){lbGrid=false;return lbFetch(todayOnly);}   // no grid column yet - ask again the old way rather than showing an offline board
+    if(!r.ok&&want){lbGrid=false;return lbFetch(todayOnly);}   // no grid column yet - ask again the old way rather than showing an offline board
     return r.ok?(await r.json()).map(fixName):null;
   }catch(e){return null;}
 }
@@ -733,8 +737,9 @@ async function lbSubmit(e){
   const send=b=>fetch(LB_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(b)});
   try{
     const full={...core,mult:e.mult,ua:navigator.userAgent};
-    let r=await send(lbGrid&&e.grid?{...full,grid:e.grid}:full);
-    if(!r.ok&&lbGrid&&e.grid){lbGrid=false;r=await send(full);}   // no grid column yet - never lose a score over the picture
+    const want=lbGrid&&!!e.grid;                                  // same rule as lbFetch: retry on what was sent
+    let r=await send(want?{...full,grid:e.grid}:full);
+    if(!r.ok&&want){lbGrid=false;r=await send(full);}              // no grid column yet - never lose a score over the picture
     if(!r.ok)r=await send(core);            // fall back if the mult/ua columns aren't there yet
     return r.ok;
   }catch(err){return false;}
