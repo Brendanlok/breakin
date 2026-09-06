@@ -160,8 +160,11 @@
   #board .hist .hl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#5f6d82;
     padding:5px 0 4px;text-align:left;}
   #board .hist .hr{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;
-    color:#6b788c;padding:2.5px 0;}
+    color:#6b788c;padding:2.5px 0;align-items:center;}
+  #board .hist .hr span{display:flex;align-items:center;gap:8px;min-width:0;}
   #board .hist .hr b{color:#c4cedd;font-weight:800;}
+  #board .hist .hmini{height:42px;width:auto;flex:none;border-radius:2px;
+    background:#0d1420;box-shadow:0 0 0 1px rgba(120,150,200,.18);}
   #board .hist.solo{margin-top:9px;padding-top:2px;border-top:1px solid rgba(120,150,200,.16);}
   #board .brank{margin-top:9px;text-align:center;font-size:11.5px;color:#67788f;letter-spacing:.03em;}
   #board .bwarn{margin-top:7px;text-align:center;font-size:11.5px;color:#ff9d8a;line-height:1.45;}
@@ -820,7 +823,8 @@ function myRuns(name){
     .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,HIST_MAX);
 }
 const histBlock=(runs,solo)=>`<div class="hist${solo?' solo':''}"><div class="hl">Your last ${runs.length} runs</div>`
-  +runs.map(r=>`<div class="hr"><span>${esc(fullDate(r.created_at))}${r.mult?' &middot; ball &times;'+r.mult:''}</span><b>${r.score}</b></div>`).join('')
+  +runs.map(r=>`<div class="hr"><span>${r.grid?`<canvas class="hmini" data-g="${esc(r.grid)}"></canvas>`:''}`
+    +`${esc(fullDate(r.created_at))}${r.mult?' &middot; ball &times;'+r.mult:''}</span><b>${r.score}</b></div>`).join('')
   +`</div>`;
 
 function renderBoard(mine){
@@ -869,6 +873,20 @@ function renderBoard(mine){
   if(runs.length>1&&!shown.some(s=>s.name===myName))html+=histBlock(runs,true);
   html+=dayLine;
   board.innerHTML=html;
+  drawHistMinis();
+}
+// The arena a run built is the character of that run - two 200-point runs look nothing alike.
+// The picture already exists (encGrid packs it, drawMini renders it for the share card and the
+// opponent view); this just hangs it off the runs already listed under your own row.
+// ponytail: local runs only. Board rows come from the server and carry no grid, so nothing
+// renders for other players until a column exists to hold it.
+function drawHistMinis(){
+  board.querySelectorAll('canvas.hmini').forEach(cv=>{
+    const p=(cv.dataset.g||'').split(':');
+    if(p.length<3)return;
+    cv.width=(+p[0]||COLS)*6;cv.height=(p[2].split('.').length||1)*6;   // 6px cells, CSS scales it down — drawMini's 1px seam stays sub-pixel
+    drawMini(cv,cv.dataset.g);
+  });
 }
 board.addEventListener('click',e=>{
   const t=e.target.closest('.bmore,.own,.btab');
@@ -896,7 +914,8 @@ async function commitPending(){
   if(!nameAllowed(name))return null;       // the button rejects it out loud; this is the guard a future caller cannot skip
   try{localStorage.setItem('breakin-name',name);}catch(e){}
   const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,
-    mult:pendingScore.mult,created_at:new Date().toISOString()};
+    mult:pendingScore.mult,created_at:new Date().toISOString(),
+    grid:(lastRun&&lastRun.grid)||''};   // stays on this device: lbSubmit posts a fixed field list, never the whole entry
   pendingScore=null;
   const loc=loadLocal();loc.push(entry);loc.sort(rankCmp);saveLocal(loc);   // always keep a local copy
   saveFailed=false;saveGaveUp=false;
@@ -2570,6 +2589,15 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     console.assert(unsavedGuard()===false,'no bounce when there is no name box on screen');
     pendingScore=wasPending;leaveArmed=wasArmed;nameEntry.classList.toggle('hidden',wasHidden);armNameEntry();
     try{nameInput.blur();}catch(e){}   // the check above focuses the box; never leave a phone keyboard open on load
+  })();
+  // history thumbnails: a stored run draws its arena, a run saved before this existed draws nothing
+  (()=>{const box=document.createElement('div');box.className='hist';
+    box.innerHTML='<canvas class="hmini" data-g="4:2:5.10"></canvas><canvas class="hmini" data-g=""></canvas>';
+    board.appendChild(box);drawHistMinis();
+    const [a,b]=box.querySelectorAll('canvas.hmini');
+    console.assert(a.width===24&&a.height===12,'a stored arena sizes its own thumbnail');
+    console.assert(b.width===300&&b.height===150,'a run with no stored arena is left untouched');
+    box.remove();
   })();
 })();
 
