@@ -31,7 +31,13 @@ All are idempotent — safe to re-run.
 | 09 | `09-speed-x5-guard.sql` | Accepts x4.5 / x5 runs. **Confirmed live 2026-09-04** — an x5 score was accepted by the real server. |
 | 10 | `10-score-flood-limit.sql` | Raises the flood limit from 5 to 30 scores per name per minute. **Confirmed live 2026-09-04** — ten scores from one name inside a minute were all accepted. |
 | 11 | `11-clear-dev-noise.sql` | one-off purge of the Aug 29-30 test crash reports. Optional — the inbox still holds 17 of them and every one is dev noise. |
-| 12 | `12-rotate-admin-passphrase.sql` | **NOT RUN — the only open launch blocker.** The live passphrase is still the one written in plain text into public commit `60f88657`, re-verified 2026-09-04: anyone reading the repo can open the admin panel and wipe the leaderboard. Edit the marked line to a NEW value, run it, then put the same value in `secrets/breakin.env`. Also switches on the inbox delete buttons. |
+| 12 | `12-rotate-admin-passphrase.sql` | **NOT RUN — open launch blocker.** The live passphrase is still the one written in plain text into public commit `60f88657`, re-verified 2026-09-04: anyone reading the repo can open the admin panel and wipe the leaderboard. Edit the marked line to a NEW value, run it, then put the same value in `secrets/breakin.env`. Also switches on the inbox delete buttons. |
+| 13 | `13-leaderboard-grid.sql` | **NOT RUN.** `grid` column on `breakin_scores` — until it exists, tapping another player's row never shows the arena that run built. The client checks nothing and degrades silently, so nothing breaks either way; the feature is simply absent. After running it, flip `let lbGrid=false` to `true` near the leaderboard section of `index.html` and push. |
+| 14 | `14-delete-test-rows.sql` | **NOT RUN — run before launch.** Removes the two test rows (OFFLIN 285, LOCTST 108) that are currently the whole leaderboard. Without it the first real player is ranked against two robots. |
+
+### Still to run before Tuesday
+12, 13 and 14 have never been applied — 11 is optional but the crash inbox is still all dev noise
+without it. Re-verified against the live database on 2026-09-06.
 
 01 → 02 are the leaderboard chain (02 needs 01). 03 → 04 → 05 are competitive (each needs 03).
 Competitive works without 04/05 — the arena view and the lobby/rematch flow just fall back to the basics until they're run.
