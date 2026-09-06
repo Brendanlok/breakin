@@ -153,9 +153,9 @@
   #board .mx{font-size:11px;color:#5f6d82;white-space:nowrap;}
   #board .sc{font-weight:800;color:#e6edf6;white-space:nowrap;}
   #board .empty{color:#6b788c;font-size:13px;padding:10px;text-align:center;}
-  #board .own{cursor:pointer;}
-  #board .own .cv{font-size:8px;color:#5f6d82;margin-left:5px;display:inline-block;}
-  #board .own.open .cv{color:#8b98ac;}
+  #board .own,#board .arn{cursor:pointer;}
+  #board .own .cv,#board .arn .cv{font-size:8px;color:#5f6d82;margin-left:5px;display:inline-block;}
+  #board .own.open .cv,#board .arn.open .cv{color:#8b98ac;}
   #board .hist{grid-column:1/-1;padding:1px 2px 7px;}
   #board .hist .hl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#5f6d82;
     padding:5px 0 4px;text-align:left;}
@@ -643,6 +643,11 @@ const RPC_URL=LB_URL.replace(/\/[^/]+$/,'/rpc/breakin_admin');
 const lbOn=()=>LB_URL.indexOf('supabase.co')>0&&LB_KEY.length>20&&location.protocol==='https:';
 // ponytail: ?dev=1 (or #dev) reads the live board but writes nothing - lets a test session play the deployed build without posting scores or crash reports.
 const DEV=/[?&#]dev(=1|\b)/.test(location.href);
+// The arena a run built is worth showing on the board, but the column that holds it only exists
+// after 13-leaderboard-grid.sql has been run. Ask for it once; if the server refuses, drop the
+// field from every read and write for the rest of the session and the board is exactly what it
+// was before. ponytail: one flag, no probe request - the first real fetch is the probe.
+let lbGrid=true;
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pad2=n=>String(n).padStart(2,'0');
@@ -703,6 +708,7 @@ const localBoardFor=()=>boardView==='today'?loadLocal().filter(isToday):loadLoca
 let boardLoading=false;      // first shared-board fetch in flight — don't claim the board is empty or offline yet
 let pendingScore=null;
 let histOpen=false;          // player tapped their own row open to see their recent runs
+let arenaOpen='';            // name|score|date of the board row whose arena is showing (one at a time)
 let boardExpanded=false;     // leaderboard shows top 5 until the player taps "show all" (keeps the game-over screen short on phones)
 let saveFailed=false;        // the last saved run never reached the shared board — say so under the board rather than silently keeping it local
 const BOARD_COLLAPSED=5;
@@ -715,7 +721,9 @@ async function lbFetch(todayOnly){
   try{
     // secs comes back too: the board ranks a tie by who got there faster
     const f=todayOnly?'&created_at=gte.'+dayStartISO():'';
-    const r=await fetch(LB_URL+'?select=name,score,secs,mult,created_at&order=score.desc,secs.asc,created_at.asc&limit='+LB_LIMIT+f,{headers:{apikey:LB_KEY}});
+    const sel='name,score,secs,mult,'+(lbGrid?'grid,':'')+'created_at';
+    const r=await fetch(LB_URL+'?select='+sel+'&order=score.desc,secs.asc,created_at.asc&limit='+LB_LIMIT+f,{headers:{apikey:LB_KEY}});
+    if(!r.ok&&lbGrid){lbGrid=false;return lbFetch(todayOnly);}   // no grid column yet - ask again the old way rather than showing an offline board
     return r.ok?(await r.json()).map(fixName):null;
   }catch(e){return null;}
 }
@@ -724,7 +732,9 @@ async function lbSubmit(e){
   const core={name:e.name,score:e.score,secs:e.secs,blocks:e.blocks};
   const send=b=>fetch(LB_URL,{method:'POST',headers:{apikey:LB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify(b)});
   try{
-    let r=await send({...core,mult:e.mult,ua:navigator.userAgent});
+    const full={...core,mult:e.mult,ua:navigator.userAgent};
+    let r=await send(lbGrid&&e.grid?{...full,grid:e.grid}:full);
+    if(!r.ok&&lbGrid&&e.grid){lbGrid=false;r=await send(full);}   // no grid column yet - never lose a score over the picture
     if(!r.ok)r=await send(core);            // fall back if the mult/ua columns aren't there yet
     return r.ok;
   }catch(err){return false;}
@@ -834,6 +844,15 @@ const histBlock=(runs,solo)=>`<div class="hist${solo?' solo':''}"><div class="hl
     +`${esc(fullDate(r.created_at))}${r.mult?' &middot; ball &times;'+r.mult:''}</span><b>${r.score}</b></div>`).join('')
   +`</div>`;
 
+// Another player's finished arena, under their row. Deliberately the same markup as histBlock so
+// it inherits every style and the same canvas renderer - a board row and a history row show the
+// same kind of picture, so they should look identical.
+// The name, date, ball speed and score are already on the row directly above, so this line carries
+// what the board has no column for: how long that run lasted.
+const arenaBlock=s=>`<div class="hist"><div class="hl">How the arena ended</div>`
+  +`<div class="hr"><span><canvas class="hmini" data-g="${esc(s.grid)}"></canvas>`
+  +`${typeof s.secs==='number'?s.secs+'s survived':esc(fullDate(s.created_at))}</span></div></div>`;
+
 function renderBoard(mine){
   const all=currentBoard();
   const list=all.slice(0,MAXBOARD);
@@ -864,13 +883,20 @@ function renderBoard(mine){
     if(me)hl.used=true;
     const rk=i<3?' r'+(i+1):'', mc=me?' me':'';
     const own=runs.length>1&&i===myTop, oc=own?' own'+(histOpen?' open':''):'';   // only your best row carries the history caret
-    const cv=own?`<span class="cv">${histOpen?'▲':'▼'}</span>`:'';
-    return `<span class="rk${rk}${mc}${oc}">${i+1}</span>`
-      +`<span class="nm${mc}${oc}">${esc(s.name)}${cv}</span>`
-      +`<span class="dt${mc}${oc}" title="${esc(fullDate(s.created_at))}${typeof s.secs==='number'?' · '+s.secs+'s':''}">${shortDate(s.created_at)}</span>`
-      +`<span class="mx${mc}${oc}">${s.mult?'&times;'+s.mult:''}</span>`
-      +`<span class="sc${mc}${oc}">${s.score}</span>`
-      +(own&&histOpen?histBlock(runs):'');
+    // Your own row already opens into your run history, so the arena caret goes on everyone else's.
+    // A row only offers it once the grid column exists AND that run actually saved a picture.
+    const akey=s.name+'|'+s.score+'|'+(s.created_at||'');
+    const arn=!own&&!!s.grid, aopen=arn&&arenaOpen===akey;
+    const cls=mc+oc+(arn?' arn'+(aopen?' open':''):'');
+    const at=arn?` data-k="${esc(akey)}"`:'';
+    const cv=own||arn?`<span class="cv">${(own?histOpen:aopen)?'▲':'▼'}</span>`:'';
+    return `<span class="rk${rk}${cls}"${at}>${i+1}</span>`
+      +`<span class="nm${cls}"${at}>${esc(s.name)}${cv}</span>`
+      +`<span class="dt${cls}"${at} title="${esc(fullDate(s.created_at))}${typeof s.secs==='number'?' · '+s.secs+'s':''}">${shortDate(s.created_at)}</span>`
+      +`<span class="mx${cls}"${at}>${s.mult?'&times;'+s.mult:''}</span>`
+      +`<span class="sc${cls}"${at}>${s.score}</span>`
+      +(own&&histOpen?histBlock(runs):'')
+      +(aopen?arenaBlock(s):'');
   }).join('');
   html+='</div>';
   if(list.length>BOARD_COLLAPSED)
@@ -891,18 +917,23 @@ function drawHistMinis(){
   board.querySelectorAll('canvas.hmini').forEach(cv=>{
     const p=(cv.dataset.g||'').split(':');
     if(p.length<3)return;
-    cv.width=(+p[0]||COLS)*6;cv.height=(p[2].split('.').length||1)*6;   // 6px cells, CSS scales it down — drawMini's 1px seam stays sub-pixel
+    // Board rows carry grids posted by other people, so these two numbers are untrusted input now.
+    // A hand-crafted "9999:9999:..." would ask for a 60000px canvas and take the page down with it.
+    const cl=n=>Math.max(1,Math.min(40,n|0));
+    cv.width=cl(+p[0]||COLS)*6;cv.height=cl(p[2].split('.').length||1)*6;   // 6px cells, CSS scales it down — drawMini's 1px seam stays sub-pixel
     drawMini(cv,cv.dataset.g);
   });
 }
 board.addEventListener('click',e=>{
-  const t=e.target.closest('.bmore,.own,.btab');
+  const t=e.target.closest('.bmore,.own,.arn,.btab');
   if(!t)return;
   if(t.classList.contains('btab')){
     if(t.dataset.v===boardView)return;
-    boardView=t.dataset.v;boardPicked=true;boardExpanded=false;   // a fresh view starts collapsed, like a fresh board
+    boardView=t.dataset.v;boardPicked=true;boardExpanded=false;arenaOpen='';   // a fresh view starts collapsed, like a fresh board
   }
-  else if(t.classList.contains('bmore'))boardExpanded=!boardExpanded; else histOpen=!histOpen;
+  else if(t.classList.contains('bmore'))boardExpanded=!boardExpanded;
+  else if(t.classList.contains('arn'))arenaOpen=arenaOpen===t.dataset.k?'':t.dataset.k;   // one open at a time
+  else histOpen=!histOpen;
   renderBoard();
 });
 
@@ -2602,13 +2633,15 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     box.innerHTML='<canvas class="hmini" data-g="4:2:5.10"></canvas>'
       +'<canvas class="hmini" data-g="'+COLS+':'+ROWS+':'+Array(ROWS).fill(3).join('.')+'"></canvas>'
       +'<canvas class="hmini nog" data-g="'+emptyGrid()+'"></canvas>'
-      +'<canvas class="hmini" data-g=""></canvas>';
+      +'<canvas class="hmini" data-g=""></canvas>'
+      +'<canvas class="hmini" data-g="9999:9999:'+Array(60).fill(1).join('.')+'"></canvas>';
     board.appendChild(box);drawHistMinis();
-    const [a,real,blank,junk]=box.querySelectorAll('canvas.hmini');
+    const [a,real,blank,junk,huge]=box.querySelectorAll('canvas.hmini');
     console.assert(a.width===24&&a.height===12,'a stored arena sizes its own thumbnail');
     console.assert(blank.width===real.width&&blank.height===real.height,
       'a run with no arena holds exactly the same slot as one that has an arena');
     console.assert(junk.width===300&&junk.height===150,'an unreadable grid string is left untouched');
+    console.assert(huge.width===240&&huge.height===240,'a grid posted by someone else cannot ask for a canvas big enough to kill the page');
     box.remove();
   })();
 })();
