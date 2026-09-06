@@ -165,6 +165,9 @@
   #board .hist .hr b{color:#c4cedd;font-weight:800;}
   #board .hist .hmini{height:42px;width:auto;flex:none;border-radius:2px;
     background:#0d1420;box-shadow:0 0 0 1px rgba(120,150,200,.18);}
+  /* filter, not opacity: the global canvas cfade animation animates opacity with fill both,
+     and an animated value beats a plain declaration - opacity:.25 here would never be seen. */
+  #board .hist .hmini.nog{filter:opacity(.28);}
   #board .hist.solo{margin-top:9px;padding-top:2px;border-top:1px solid rgba(120,150,200,.16);}
   #board .brank{margin-top:9px;text-align:center;font-size:11.5px;color:#67788f;letter-spacing:.03em;}
   #board .bwarn{margin-top:7px;text-align:center;font-size:11.5px;color:#ff9d8a;line-height:1.45;}
@@ -822,8 +825,12 @@ function myRuns(name){
   return loadLocal().filter(s=>s.name===name&&s.created_at)
     .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,HIST_MAX);
 }
+// A run saved before the mosaic existed has no picture. It still gets a slot - faint and empty -
+// because dropping the canvas collapsed the thumbnail column and shunted that row's date to the
+// left, which reads as a broken image rather than as "nothing to show".
+const emptyGrid=()=>COLS+':'+ROWS+':'+Array(ROWS).fill(0).join('.');
 const histBlock=(runs,solo)=>`<div class="hist${solo?' solo':''}"><div class="hl">Your last ${runs.length} runs</div>`
-  +runs.map(r=>`<div class="hr"><span>${r.grid?`<canvas class="hmini" data-g="${esc(r.grid)}"></canvas>`:''}`
+  +runs.map(r=>`<div class="hr"><span><canvas class="hmini${r.grid?'':' nog'}" data-g="${esc(r.grid||emptyGrid())}"${r.grid?'':' title="No arena saved for this run"'}></canvas>`
     +`${esc(fullDate(r.created_at))}${r.mult?' &middot; ball &times;'+r.mult:''}</span><b>${r.score}</b></div>`).join('')
   +`</div>`;
 
@@ -2590,13 +2597,18 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     pendingScore=wasPending;leaveArmed=wasArmed;nameEntry.classList.toggle('hidden',wasHidden);armNameEntry();
     try{nameInput.blur();}catch(e){}   // the check above focuses the box; never leave a phone keyboard open on load
   })();
-  // history thumbnails: a stored run draws its arena, a run saved before this existed draws nothing
+  // history thumbnails: a stored run draws its arena, a run with none still holds the same slot
   (()=>{const box=document.createElement('div');box.className='hist';
-    box.innerHTML='<canvas class="hmini" data-g="4:2:5.10"></canvas><canvas class="hmini" data-g=""></canvas>';
+    box.innerHTML='<canvas class="hmini" data-g="4:2:5.10"></canvas>'
+      +'<canvas class="hmini" data-g="'+COLS+':'+ROWS+':'+Array(ROWS).fill(3).join('.')+'"></canvas>'
+      +'<canvas class="hmini nog" data-g="'+emptyGrid()+'"></canvas>'
+      +'<canvas class="hmini" data-g=""></canvas>';
     board.appendChild(box);drawHistMinis();
-    const [a,b]=box.querySelectorAll('canvas.hmini');
+    const [a,real,blank,junk]=box.querySelectorAll('canvas.hmini');
     console.assert(a.width===24&&a.height===12,'a stored arena sizes its own thumbnail');
-    console.assert(b.width===300&&b.height===150,'a run with no stored arena is left untouched');
+    console.assert(blank.width===real.width&&blank.height===real.height,
+      'a run with no arena holds exactly the same slot as one that has an arena');
+    console.assert(junk.width===300&&junk.height===150,'an unreadable grid string is left untouched');
     box.remove();
   })();
 })();
