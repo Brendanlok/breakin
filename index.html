@@ -377,7 +377,7 @@
   #chase .row.you{margin-top:7px;padding-top:8px;border-top:1px solid rgba(120,150,200,.16);color:#ffd25f;}
   #chase .row.you b{color:#ffd25f;}
   #ptip{position:fixed;left:0;right:0;top:calc(94px + env(safe-area-inset-top,0px));text-align:center;
-    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#93a1b5;pointer-events:none;z-index:30;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#93a1b5;pointer-events:none;z-index:45;
     /* a top-wall bounce always lands its block in row 0, right under this line — the halo keeps
        the tip readable where it overlaps a freshly placed block */
     text-shadow:0 0 5px #0a0e14,0 0 5px #0a0e14,0 0 10px #0a0e14;
@@ -1567,9 +1567,16 @@ function startPlay(){
   nameEntry.classList.add('hidden');homeLink.classList.add('hidden');
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');
   hud.classList.remove('hidden');showTpad(true);armBest(true);
+  hTime.textContent='0';hBlocks.textContent='0';hScore.textContent='0';   // the countdown holds the HUD on screen before frame() writes it — never show the last run's numbers
   fit();reset();kick();
   chaseScore=0;armHudChase();renderChase(0);placeChase();
   maybeShowPtip();
+  // A run is one life, and the ball launched the instant Play was pressed - on a phone the button
+  // is mid-screen and the paddle arrows are at the bottom, so the first second was spent moving a
+  // thumb. Competitive already opens with a countdown; solo now gets the same beat.
+  // ponytail: reuses the pause countdown (frame() freezes the ball while resumeIn>0, tap/space skips a second).
+  resumeIn=2000;pNum.textContent=Math.ceil(resumeIn/1000);
+  showPausePanel('count');pauseEl.classList.remove('hidden');
 }
 
 // nudge the controls once per player — how to move, then how to pause
