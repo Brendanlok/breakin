@@ -954,6 +954,14 @@ function qualifies(score){
   return list.length<MAXBOARD||score>list[list.length-1].score;
 }
 
+// Where this run lands on the board it was judged against. 1-based; ties sit below the
+// rows already there. Used only for the label — qualifies() still decides who gets to save.
+function boardRank(score){
+  const list=(remoteToday||loadLocal().filter(isToday)).slice().sort(rankCmp);
+  let i=0;while(i<list.length&&!(score>list[i].score))i++;
+  return i+1;
+}
+
 async function commitPending(){
   if(!pendingScore)return null;
   const name=cleanName(nameInput.value);
@@ -986,7 +994,11 @@ nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();
 // (Play again / Back to start) sit directly under the name box. Bounce the first attempt
 // once, at the two places every one of those paths goes through.
 const neLabel=nameEntry.querySelector('.ne-label');
-const NE_OK='&#9733; You made the leaderboard';
+// The board starts nearly empty, so "you made the leaderboard" would fire for a 2-second
+// flop on launch day. Say the actual position instead — honest, and it earns its star back
+// as the board fills.
+let NE_OK='&#9733; You made the leaderboard';
+const neOkText=r=>r===1?'&#9733; Top of today’s board':'&#9733; #'+r+' on today’s board';
 let leaveArmed=false;
 let neMsgSeq=0;                 // whichever message went up last owns the label - one timer must not clear another's
 function armNameEntry(){leaveArmed=false;neLabel.innerHTML=NE_OK;neLabel.classList.remove('warn');}
@@ -1611,6 +1623,7 @@ function endGame(reason){
     pendingScore={score,secs,blocks:blk,mult};
     nameInput.value=loadName();                 // your own initials from last time - still nothing is posted until Save is pressed
     saveBtn.disabled=!nameInput.value;
+    NE_OK=neOkText(boardRank(score));
     armNameEntry();
     nameEntry.classList.remove('hidden');
   }else{
