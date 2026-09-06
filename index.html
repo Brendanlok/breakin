@@ -682,6 +682,7 @@ function dayRand(){
 }
 
 let boardView='today';       // 'today' | 'all' — the daily race is what the game is about, so it leads
+let boardPicked=false;       // the player tapped a tab — from then on the view is theirs, never auto-switched
 let remoteAll=null,remoteToday=null;   // null = offline / not configured
 const remoteBoardFor=()=>boardView==='today'?remoteToday:remoteAll;
 const localBoardFor=()=>boardView==='today'?loadLocal().filter(isToday):loadLocal();
@@ -716,7 +717,12 @@ async function lbSubmit(e){
 }
 async function refreshBoard(){
   const [a,t]=await Promise.all([lbFetch(false),lbFetch(true)]);   // both views up front — switching tabs is then instant
-  remoteAll=a;remoteToday=t;boardLoading=false;renderBoard();
+  remoteAll=a;remoteToday=t;boardLoading=false;
+  // Today's board is empty every morning until someone plays, so the first visitor of the day met a
+  // dead panel with nothing to beat. Fall back to All time when Today has nothing — never over the
+  // player's own tap. ponytail: one flag, no persistence; the tab resets with the page.
+  if(!boardPicked&&boardView==='today'&&!currentBoard().length&&(a&&a.length))boardView='all';
+  renderBoard();
 }
 
 // A refused save is not a lost run. The server refuses a burst of scores from one name inside a
@@ -861,7 +867,7 @@ board.addEventListener('click',e=>{
   if(!t)return;
   if(t.classList.contains('btab')){
     if(t.dataset.v===boardView)return;
-    boardView=t.dataset.v;boardExpanded=false;   // a fresh view starts collapsed, like a fresh board
+    boardView=t.dataset.v;boardPicked=true;boardExpanded=false;   // a fresh view starts collapsed, like a fresh board
   }
   else if(t.classList.contains('bmore'))boardExpanded=!boardExpanded; else histOpen=!histOpen;
   renderBoard();
