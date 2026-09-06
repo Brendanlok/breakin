@@ -647,6 +647,14 @@ const saveLocal=l=>{try{localStorage.setItem('breakin-scores',JSON.stringify(l.s
 // Arcade rule: a name is up to 6 characters, capitals and digits only. Applied on the way in AND
 // on the way out, so a long mixed-case name saved before this becomes a legal one instead of sticking.
 const cleanName=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+// A name goes on a public, shared, permanent board and the launch audience is a link on Reddit.
+// Substrings for the slurs with no innocent reading; whole-name only for the ones that live inside
+// ordinary words (GRAPE, BASS, SPICY, COONS) so those still work as names.
+// Ceiling: cleanName strips punctuation, so a mangled spelling still gets through. Accepted - the
+// admin panel is the backstop. ponytail: a short list, not a moderation system. See test-names.js.
+const NAME_BAN=/NIGG|N1GG|FUCK|SHIT|CUNT|FAGG|KIKE|CHINK|TRANNY|WHORE|HITLER|RETARD/;
+const NAME_BAN_EXACT=/^(RAPE|NAZI|FAG|SPIC|COON|GOOK|TWAT|CUM)$/;
+const nameAllowed=n=>!NAME_BAN.test(n)&&!NAME_BAN_EXACT.test(n);
 // Every row is canonicalised the moment it enters the app - from the server or from localStorage -
 // so the display, the "that row is you" match and the rank line all agree. Cleaning at each render
 // site instead would leave the name comparisons still looking at the raw value.
@@ -885,6 +893,7 @@ async function commitPending(){
   if(!pendingScore)return null;
   const name=cleanName(nameInput.value);
   if(!name)return null;                    // the greyed example is a hint, never a value
+  if(!nameAllowed(name))return null;       // the button rejects it out loud; this is the guard a future caller cannot skip
   try{localStorage.setItem('breakin-name',name);}catch(e){}
   const entry={name,score:pendingScore.score,secs:pendingScore.secs,blocks:pendingScore.blocks,
     mult:pendingScore.mult,created_at:new Date().toISOString()};
@@ -896,7 +905,10 @@ async function commitPending(){
   renderBoard(entry);
   return entry;
 }
-saveBtn.addEventListener('click',async()=>{nameEntry.classList.add('hidden');await commitPending();});
+saveBtn.addEventListener('click',async()=>{
+  if(!nameAllowed(cleanName(nameInput.value))){rejectName();return;}   // say so - never hide the box on a name that was not saved
+  nameEntry.classList.add('hidden');await commitPending();
+});
 nameInput.addEventListener('input',()=>{                      // caps + alphanumeric as you type, on every keyboard
   const c=cleanName(nameInput.value);
   if(c!==nameInput.value)nameInput.value=c;
@@ -910,10 +922,18 @@ nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();
 const neLabel=nameEntry.querySelector('.ne-label');
 const NE_OK='&#9733; You made the leaderboard';
 let leaveArmed=false;
+let neMsgSeq=0;                 // whichever message went up last owns the label - one timer must not clear another's
 function armNameEntry(){leaveArmed=false;neLabel.innerHTML=NE_OK;neLabel.classList.remove('warn');}
+function rejectName(){
+  const seq=++neMsgSeq;
+  neLabel.textContent='Pick a different name — that one is not allowed.';
+  neLabel.classList.add('warn');
+  try{nameInput.focus();nameInput.select();}catch(e){}
+  setTimeout(()=>{if(seq===neMsgSeq)armNameEntry();},5000);
+}
 function unsavedGuard(){
   if(!pendingScore||nameEntry.classList.contains('hidden')||leaveArmed)return false;
-  leaveArmed=true;
+  leaveArmed=true;neMsgSeq++;               // this message now owns the label; drop any pending rejectName restore
   neLabel.textContent='Save your score first — or go again to skip it';
   neLabel.classList.add('warn');
   try{nameInput.focus();}catch(e){}
