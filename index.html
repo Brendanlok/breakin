@@ -494,7 +494,7 @@
       <button id="cBack2" class="link">Cancel</button>
     </div>
     <div id="cJoinV" class="cview hidden">
-      <p class="csub" id="cJoinLead">Enter the 6-character code from your friend.</p>
+      <p class="csub" id="cJoinLead">Your name, and the 6-character code from your friend.</p>
       <input id="cCodeIn" maxlength="6" placeholder="ABC234" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <button id="cJoinGo">Join</button>
       <div id="cSpeedGuest" class="cspeed hidden">
@@ -2029,6 +2029,7 @@ const cViews={choice:document.getElementById('cChoice'),invite:document.getEleme
 const cCodeEl=document.getElementById('cCode');
 const cQR=document.getElementById('cQR');
 const cNameIn=document.getElementById('cName');
+const cInviteBtn=document.getElementById('cInvite');
 const cCodeIn=document.getElementById('cCodeIn');
 const cJoinErr=document.getElementById('cJoinErr');
 const cJoinGo=document.getElementById('cJoinGo');
@@ -2134,7 +2135,12 @@ function drawMini(cv,str){
     g.fillRect(c*cw+0.5,r*ch+0.5,cw-1,ch-1);
   }
 }
-const showCView=name=>{for(const k in cViews)cViews[k].classList.toggle('hidden',k!==name);};
+const showCView=name=>{
+  for(const k in cViews)cViews[k].classList.toggle('hidden',k!==name);
+  // a friend arriving on an invite link never sees the choice view, so the name box travels to Join with them
+  if(name==='join')cViews.join.insertBefore(cNameIn,cCodeIn);
+  else if(name==='choice'){cViews.choice.insertBefore(cNameIn,cInviteBtn);cNameIn.classList.remove('hidden');cNameIn.disabled=false;}
+};
 function openCompete(view){compete.classList.remove('hidden');showCView(view||'choice');}
 function myName(){const n=((cNameIn.value||'').trim()||loadName()||randomName()).slice(0,14);try{localStorage.setItem('breakin-name',n);}catch(e){}return n;}
 
@@ -2212,9 +2218,9 @@ async function guestToggleReady(){
   await roomPatch(vs.code,{guest_ready:vs.guestReady});
 }
 function resetJoinView(){
-  cCodeIn.disabled=false;cCodeIn.classList.remove('hidden');cJoinGo.classList.remove('hidden');
+  cCodeIn.disabled=false;cCodeIn.classList.remove('hidden');cJoinGo.classList.remove('hidden');cNameIn.disabled=false;cNameIn.classList.remove('hidden');
   cSpeedGuest.classList.add('hidden');cReady.classList.add('hidden');
-  cJoinLead.textContent='Enter the 6-character code from your friend.';
+  cJoinLead.textContent='Your name, and the 6-character code from your friend.';
   cJoinErr.textContent='';cJoinErr.classList.remove('ok');cJoinStatus.textContent='';
 }
 async function guestJoin(){
@@ -2228,7 +2234,7 @@ async function guestJoin(){
   if(room.guest_name){cJoinStatus.textContent='';cJoinGo.classList.remove('hidden');cJoinErr.textContent='That game already has two players.';return;}
   const ok=await roomPatch(code,{guest_name:myName(),guest_seen:srvISO()});
   if(!ok){cJoinStatus.textContent='';cJoinGo.classList.remove('hidden');cJoinErr.textContent='Could not join - try again.';return;}
-  cCodeIn.disabled=true;
+  cCodeIn.disabled=true;cNameIn.disabled=true;
   vs={code:code,role:'guest',name:myName()};
   vs.lobbySync=('guest_ready' in room);vs.roomMult=+room.mult||2;vs.hostName=room.host_name||null;vs.guestReady=false;
   renderGuestLobby();
@@ -2316,7 +2322,7 @@ function renderHostLobby(){
 }
 function renderGuestLobby(){
   showCView('join');cRematchPanel.classList.add('hidden');
-  cCodeIn.classList.add('hidden');cJoinGo.classList.add('hidden');cJoinErr.textContent='';
+  cCodeIn.classList.add('hidden');cJoinGo.classList.add('hidden');cJoinErr.textContent='';cNameIn.classList.add('hidden');
   cSpeedGuest.classList.toggle('hidden',!vs.lobbySync);
   cReady.classList.toggle('hidden',!vs.lobbySync);
   cSpdValG.textContent='×'+vs.roomMult;
