@@ -1509,7 +1509,11 @@ function reset(){
   flashes.length=0;padFx=null;
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;dryMs=0;pending=null;   // one life — a miss ends the game
-  saveFailed=false;saveGaveUp=false;
+  // ponytail: the two save-warning flags used to be cleared here. They are save state, not arena
+  // state, and reset() also runs every time the ATTRACT demo behind the start menu finishes a
+  // round — so "this run could not be added to the shared board" was being wiped, on the menu,
+  // ~20s after the player read it, while the run was still missing from the board. commitPending()
+  // clears them at the start of every save, which is the only moment they should be cleared.
   empties=spawnMaxRow*COLS;
   resetBall();
   over=false;
@@ -2665,6 +2669,12 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     console.assert(unsavedGuard()===false,'no bounce when there is no name box on screen');
     pendingScore=wasPending;leaveArmed=wasArmed;nameEntry.classList.toggle('hidden',wasHidden);armNameEntry();
     try{nameInput.blur();}catch(e){}   // the check above focuses the box; never leave a phone keyboard open on load
+  })();
+  // a standing "could not save" warning must survive the attract demo restarting its arena
+  (()=>{const wf=saveFailed,wg=saveGaveUp,wm=mode;
+    mode='attract';saveFailed=true;saveGaveUp=true;reset();
+    console.assert(saveFailed===true&&saveGaveUp===true,'reset() must not clear a standing save warning');
+    saveFailed=wf;saveGaveUp=wg;mode=wm;reset();
   })();
   // history thumbnails: a stored run draws its arena, a run with none still holds the same slot
   (()=>{const box=document.createElement('div');box.className='hist';
