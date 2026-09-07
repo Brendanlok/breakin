@@ -129,6 +129,22 @@ exception when duplicate_object then null; end $$;
 
 
 -- ============================================================================
+--  STEP 2d - sweep the abandoned competitive rooms                    (new)
+-- ============================================================================
+--  breakin_rooms has no expiry. A room row is deleted only when the host
+--  cancels or leaves cleanly; a host who just closes the tab leaves the row
+--  behind for good. Six such rows from Claude's own 01-03.09 testing are
+--  sitting in the live table right now.
+--
+--  Nothing player-facing breaks either way - the codes are random and a stale
+--  row is never shown to anyone - so this is housekeeping, not a fix. It is
+--  safe to re-run any time: a live match is minutes old, never hours.
+
+delete from public.breakin_rooms
+ where created_at < now() - interval '6 hours';
+
+
+-- ============================================================================
 --  STEP 3 — why nothing looks different straight away
 -- ============================================================================
 --  index.html has `let lbGrid=false;` in the leaderboard section. It is false
