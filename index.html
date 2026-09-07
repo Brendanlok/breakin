@@ -468,7 +468,7 @@
     <div class="ctitle">Competitive</div>
     <div id="cChoice" class="cview">
       <p class="csub">Play your own board head-to-head with a friend &mdash; live scores, highest total wins.</p>
-      <input id="cName" maxlength="14" placeholder="Your name" autocomplete="off" spellcheck="false">
+      <input id="cName" maxlength="6" placeholder="Your name" autocomplete="off" autocapitalize="characters" spellcheck="false">
       <button id="cInvite">Invite a friend</button>
       <button id="cJoin" class="ghost">Join with a code</button>
       <button id="cBack1" class="link">Back to menu</button>
@@ -2142,7 +2142,10 @@ const showCView=name=>{
   else if(name==='choice'){cViews.choice.insertBefore(cNameIn,cInviteBtn);cNameIn.classList.remove('hidden');cNameIn.disabled=false;}
 };
 function openCompete(view){compete.classList.remove('hidden');showCView(view||'choice');}
-function myName(){const n=((cNameIn.value||'').trim()||loadName()||randomName()).slice(0,14);try{localStorage.setItem('breakin-name',n);}catch(e){}return n;}
+// One name rule for the whole game: what you type here is what lands on the leaderboard, and the
+// banned list applies to the name your opponent sees too - not just to the public board.
+function myName(){let n=cleanName(cNameIn.value)||loadName()||randomName();if(!nameAllowed(n))n=randomName();
+  try{localStorage.setItem('breakin-name',n);}catch(e){}return n;}
 
 function vsCleanup(keepRoom){
   if(vs){
@@ -2558,6 +2561,7 @@ document.getElementById('competeBtn').addEventListener('click',()=>{
   if(unsavedGuard())return;              // third way off the game-over card, and it sits under the name box too:
                                          // starting a match hides the name entry for good, so the score would just vanish
   cNameIn.value=loadName()||randomName();openCompete('choice');});
+cNameIn.addEventListener('input',()=>{const c=cleanName(cNameIn.value);if(c!==cNameIn.value)cNameIn.value=c;});
 document.getElementById('cInvite').addEventListener('click',startInvite);
 document.getElementById('cJoin').addEventListener('click',()=>{resetJoinView();cCodeIn.value='';showCView('join');setTimeout(()=>cCodeIn.focus(),30);});
 cStart.addEventListener('click',hostStart);
