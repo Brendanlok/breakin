@@ -2,7 +2,7 @@
 // so caching six files is all "works on a plane / in a lift" takes.
 // ponytail: network-first, always. Offline gets the last good copy; online can never be
 // served a stale build, so a launch-day hotfix still lands on the next reload.
-const C = 'breakin-v1';
+const C = 'breakin-v2';
 const ASSETS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'og.png'];
 
 self.addEventListener('install', e => {
@@ -20,16 +20,28 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
   // the leaderboard / feedback calls go to Supabase - never cache or shadow those
-  if (new URL(e.request.url).origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin) return;
+  // ponytail: key the cache on the path alone. Reads already ignored the search string, so
+  // every ?join=CODE invite and every ?v= cache-buster was writing ANOTHER full copy of
+  // index.html that nothing could ever match back - 59 dead copies on one test device.
+  // Unbounded growth, and an over-budget origin gets its whole storage evicted on iOS,
+  // which takes the offline shell with it.
+  const key = url.origin + url.pathname;
+  const net = fetch(e.request).then(res => {
+    // a 404 served during a deploy must never become the offline copy of the game
+    if (res.ok) { const copy = res.clone(); caches.open(C).then(c => c.put(key, copy)).catch(() => {}); }
+    return res;
+  });
+  const cached = () => caches.match(key).then(r => r || caches.match('index.html'));
   e.respondWith(
-    fetch(e.request).then(res => {
-      const copy = res.clone();
-      caches.open(C).then(c => c.put(e.request, copy)).catch(() => {});
-      return res;
-    }).catch(() =>
-      // ignoreSearch so ?v=123 cache-busters and ?join=CODE invites still match
-      caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match('index.html'))
-    )
+    // ponytail: fetch does not reject on a stalled mobile connection, it hangs - so plain
+    // network-first left the player staring at a blank page for good, in exactly the
+    // weak-signal case this offline shell exists for. Give the network 8s to win, so a slow
+    // but working load still gets the newest build, then show the cached game. The fetch
+    // runs on and still refreshes the cache, so a launch-day hotfix lands on the next open.
+    Promise.race([net.catch(() => null), new Promise(r => setTimeout(r, 8000))])
+      .then(res => res || cached().then(r => r || net))
   );
 });
