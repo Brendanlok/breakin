@@ -33,22 +33,30 @@
 
 
 -- ============================================================================
---  STEP 2a — take the two robot rows off the live leaderboard        (was 14)
+--  STEP 2a — take the three robot rows off the live leaderboard      (was 14)
 -- ============================================================================
---  The board holds exactly two rows and both are Claude's, from testing the
---  save path on 2026-09-05: OFFLIN 285 (offline/retry path) and LOCTST 108
---  (local save path). Confirmed still there 2026-09-07. Without this the first
---  real player is ranked behind two robots and the "N players so far" line
---  counts Claude twice. Matches two exact ids, nothing else.
+--  The board holds exactly three rows and all three are Claude's, from testing
+--  the save path: OFFLIN 285 (offline/retry path) and LOCTST 108 (local save
+--  path) on 2026-09-05, plus ZZTST3 80 on 2026-09-07. Without this the first
+--  real player is ranked behind three robots and the "N players so far" line
+--  counts Claude three times. Matches three exact ids, nothing else.
+--
+--  ZZTST3 was an accident, 2026-09-07 4pm: a session was testing that a score
+--  the SERVER REJECTS still warns the player instead of failing silently. It
+--  does — that check passed. But a rejected save is also queued for retry, and
+--  when the test released its stubbed network the queue drained to the real
+--  board. Harmless, and it goes away with the other two here.
 
 select id, name, score, mult, secs, created_at
 from public.breakin_scores
 where id in ('2fa52329-5eca-451c-8f55-5f5b2703a950',
-             '924f66dd-a72f-4c1b-9169-1af387664184');
+             '924f66dd-a72f-4c1b-9169-1af387664184',
+             '562f1f7f-f416-4406-ba29-263c60c51b99');
 
 delete from public.breakin_scores
 where id in ('2fa52329-5eca-451c-8f55-5f5b2703a950',
-             '924f66dd-a72f-4c1b-9169-1af387664184');
+             '924f66dd-a72f-4c1b-9169-1af387664184',
+             '562f1f7f-f416-4406-ba29-263c60c51b99');
 
 select count(*) as scores_left from public.breakin_scores;   -- expect 0
 
