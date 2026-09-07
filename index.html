@@ -748,8 +748,14 @@ async function lbSubmit(e){
     return r.ok;
   }catch(err){return false;}
 }
+let boardLoadT=0;
 async function refreshBoard(){
+  // No fetch here has a timeout, so a request that never answers would leave the panel reading
+  // "Loading scores" for good. Give up the loading state after 6s and show the offline board.
+  clearTimeout(boardLoadT);
+  boardLoadT=setTimeout(()=>{if(boardLoading){boardLoading=false;renderBoard();}},6000);
   const [a,t]=await Promise.all([lbFetch(false),lbFetch(true)]);   // both views up front — switching tabs is then instant
+  clearTimeout(boardLoadT);
   remoteAll=a;remoteToday=t;boardLoading=false;
   // Today's board is empty every morning until someone plays, so the first visitor of the day met a
   // dead panel with nothing to beat. Fall back to All time when Today has nothing — never over the
@@ -807,7 +813,12 @@ const rankCmp=(a,b)=>b.score-a.score||secsOf(a)-secsOf(b);
 // The board ranks RUNS, best first, up to MAXBOARD of them. It used to show only each player's
 // best, which kept one name off every slot but also meant a three-player game could only ever
 // draw a three-row board. A leaderboard that runs #1 to #10 reads like a leaderboard.
-const currentBoard=()=>(remoteBoardFor()||localBoardFor()).slice().sort(rankCmp);
+// While the first fetch is still in flight this device's own scores are NOT the board. Falling
+// back to them here put a returning player's own runs under a plain "Leaderboard" header, with
+// themselves at #1, until the real board quietly replaced them a moment later. Stay empty while
+// loading so the panel says "Loading scores" instead; the local fallback returns the moment the
+// request actually fails, labelled offline.
+const currentBoard=()=>(remoteBoardFor()||(boardLoading?[]:localBoardFor())).slice().sort(rankCmp);
 
 // One quiet line under the board: where you stand, and how big the field is. Without it a
 // three-row board reads as broken rather than as a young game, and anyone outside the top 10
