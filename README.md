@@ -45,10 +45,31 @@ Competitive works without 04/05 — the arena view and the lobby/rematch flow ju
 06 → 09 → 10 each replace the same `breakin_scores_guard()` function, so run them in order and
 finish with 10 — whichever ran last is the one in force. 10 is the one in force now.
 A missing guard migration fails silently: the player sees their score and keeps a local copy while
-the server quietly drops it, so it looks like nothing at all rather than like an error. There is no
-read-only way to ask which one is installed — probe it instead, by posting one score at x5 and a
-burst of ten under a single name and checking every insert comes back `201`. That is how 09 and 10
-were confirmed on launch morning; delete the probe rows afterwards with the admin panel.
+the server quietly drops it, so it looks like nothing at all rather than like an error — so it is
+worth checking which one is installed. Do it **without writing anything to the board**.
+
+The guard runs its checks in a fixed order (mult → score/blocks/mult → block rate → range → flood),
+so a row that is deliberately illegal in a *later* check tells you whether it got past an *earlier*
+one. Post a row with a real x5 multiplier and a deliberately wrong score: it can never insert, and
+the message names the version.
+
+```
+curl -s -X POST "https://ekcnpuwclkjnqnntlvot.supabase.co/rest/v1/breakin_scores"   -H "apikey: sb_publishable_pfng2gwF0IdAZfwbwhWPWQ_bfHOMIAC" -H "Content-Type: application/json"   -d '{"name":"ZZPROB","score":999,"blocks":1,"secs":10,"mult":5,"ua":"guard-probe"}'
+```
+
+* `bad mult` → **06 is in force**: every x4.5 / x5 run is being silently refused. Run 09, then 10.
+* `score/blocks/mult mismatch` → 09 or 10 is in force, x5 is accepted. This is the healthy answer.
+
+Nothing is inserted either way, so it is safe to run against the live board on launch morning.
+Verified 2026-09-07: all three probes rejected, board unchanged.
+
+The 09-vs-10 difference is the flood limit (5 vs 30 scores per name per minute) and there is no
+read-only way to tell those apart — reaching that check means writing a real row. Do not test it:
+just re-run `10-score-flood-limit.sql`. It is `create or replace`, so it is idempotent and free.
+
+**Do not verify the guard by posting real scores.** The old note here said to post eleven of them
+and delete them afterwards from the admin panel. That is how test rows end up stuck on the public
+board — OFFLIN and LOCTST are still there because nothing could remove them.
 
 ## Leaderboard
 
