@@ -976,6 +976,12 @@ async function commitPending(){
   saveFailed=false;saveGaveUp=false;
   if(lbOn()){saveFailed=!DEV&&!await lbSubmit(entry);await refreshBoard();}
   if(saveFailed)queueSave(entry);
+  // The star over the name box ranks this run on TODAY's board, but the board underneath
+  // falls back to All time on an empty morning - so a run that just took today's #1 was
+  // shown a list of older, bigger scores it is not even on. Show the board it was judged
+  // against, with the new row on it. The player's own tab choice still wins.
+  const todayRows=remoteToday||loadLocal().filter(isToday);
+  if(!boardPicked&&todayRows.length)boardView='today';
   renderBoard(entry);
   return entry;
 }
