@@ -153,6 +153,30 @@ delete from public.breakin_rooms
 
 
 -- ============================================================================
+--  STEP 2e - keep it swept, so 2d never has to be run again      (OPTIONAL)
+-- ============================================================================
+--  2d clears the table once. Rooms will start piling up again from the first
+--  competitive match, because nothing expires them. This is the fix, and it is
+--  the ONE line from 03-rooms.sql that was left commented out.
+--
+--  It is left commented here too, on purpose: if pg_cron is not enabled on the
+--  project the statement errors, and an error part-way through a paste aborts
+--  everything after it. So run it on its own, AFTER the rest of this file, and
+--  simply ignore it if it complains - nothing depends on it.
+--
+--  Why not do this from the game instead: the client would have to compute the
+--  cutoff from the device clock, and a phone whose clock is a day fast would
+--  then delete every LIVE room in the table for everyone. Server-side or not
+--  at all.
+--
+--    select cron.schedule('breakin-rooms-sweep', '17 * * * *',
+--      $$delete from public.breakin_rooms where created_at < now() - interval '6 hours'$$);
+--
+--  To check it later:   select * from cron.job;
+--  To remove it:        select cron.unschedule('breakin-rooms-sweep');
+
+
+-- ============================================================================
 --  STEP 3 — why nothing looks different straight away
 -- ============================================================================
 --  index.html has `let lbGrid=false;` in the leaderboard section. It is false
