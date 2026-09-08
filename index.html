@@ -137,9 +137,16 @@
     margin-bottom:10px;text-align:center;}
   #board .grid{display:grid;grid-template-columns:1.9em minmax(0,1fr) auto auto auto;
     align-items:baseline;}
+  /* Every TODAY row is today by definition, so the date column carries no information on that
+     tab while costing the most width on a phone. Hidden rather than omitted, so the date cells
+     keep their DOM positions and nothing else has to know the column count. */
+  #board .grid.noday{grid-template-columns:1.9em minmax(0,1fr) auto auto;}
+  #board .grid.noday>span.dt,#board .grid.noday>span.h-dt{display:none;}
   #board .grid>span{padding:5px 6px;}
-  #board .grid>span:nth-child(5n+1){padding-left:2px;}   /* whole rank column, not just one cell */
-  #board .grid>span:nth-child(5n){padding-right:2px;}    /* whole score column — keeps the last row aligned */
+  /* Column padding keys off each cell's own class, never an nth-child cadence: the expanded-arena
+     .hist div is also a grid child, so a 5n rule slips by one for every row under an open arena. */
+  #board .grid>span.rk,#board .grid>span.h-rk{padding-left:2px;}
+  #board .grid>span.sc,#board .grid>span.h-sc{padding-right:2px;}
   #board .grid>span.head{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
     color:#5f6d82;padding-bottom:7px;}
   #board .grid>span.head.h-r{letter-spacing:0;}          /* right-aligned headers: no tracking, so DATE/SCORE land exactly on their column edge */
@@ -870,8 +877,8 @@ function renderBoard(mine){
   const mineIdx=hl?list.findIndex(s=>s.name===hl.name&&s.score===hl.score):-1;
   const showAll=boardExpanded||mineIdx>=BOARD_COLLAPSED;   // never hide the player's own fresh score
   const shown=showAll?list:list.slice(0,BOARD_COLLAPSED);
-  html+='<div class="grid"><span class="head h-l">#</span><span class="head h-l">name</span>'
-    +'<span class="head h-r">date</span><span class="head h-r">ball</span><span class="head h-r">score</span>';
+  html+='<div class="grid'+(boardView==='today'?' noday':'')+'"><span class="head h-l h-rk">#</span><span class="head h-l">name</span>'
+    +'<span class="head h-r h-dt">date</span><span class="head h-r">ball</span><span class="head h-r h-sc">score</span>';
   html+=shown.map((s,i)=>{
     const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
     if(me)hl.used=true;
