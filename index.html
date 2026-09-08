@@ -153,9 +153,9 @@
   #board .mx{font-size:11px;color:#5f6d82;white-space:nowrap;}
   #board .sc{font-weight:800;color:#e6edf6;white-space:nowrap;}
   #board .empty{color:#6b788c;font-size:13px;padding:10px;text-align:center;}
-  #board .own,#board .arn{cursor:pointer;}
-  #board .own .cv,#board .arn .cv{font-size:8px;color:#5f6d82;margin-left:5px;display:inline-block;}
-  #board .own.open .cv,#board .arn.open .cv{color:#8b98ac;}
+  #board .arn{cursor:pointer;}
+  #board .arn .cv{font-size:8px;color:#5f6d82;margin-left:5px;display:inline-block;}
+  #board .arn.open .cv{color:#8b98ac;}
   #board .hist{grid-column:1/-1;padding:1px 2px 7px;}
   #board .hist .hl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#5f6d82;
     padding:5px 0 4px;text-align:left;}
@@ -165,10 +165,6 @@
   #board .hist .hr b{color:#c4cedd;font-weight:800;}
   #board .hist .hmini{height:42px;width:auto;flex:none;border-radius:2px;
     background:#0d1420;box-shadow:0 0 0 1px rgba(120,150,200,.18);}
-  /* filter, not opacity: the global canvas cfade animation animates opacity with fill both,
-     and an animated value beats a plain declaration - opacity:.25 here would never be seen. */
-  #board .hist .hmini.nog{filter:opacity(.28);}
-  #board .hist.solo{margin-top:9px;padding-top:2px;border-top:1px solid rgba(120,150,200,.16);}
   #board .brank{margin-top:9px;text-align:center;font-size:11.5px;color:#67788f;letter-spacing:.03em;}
   #board .bwarn{margin-top:7px;text-align:center;font-size:11.5px;color:#ff9d8a;line-height:1.45;}
   #board .brank b{color:#c4cedd;font-weight:800;}
@@ -711,7 +707,6 @@ const remoteBoardFor=()=>boardView==='today'?remoteToday:remoteAll;
 const localBoardFor=()=>boardView==='today'?loadLocal().filter(isToday):loadLocal();
 let boardLoading=false;      // first shared-board fetch in flight — don't claim the board is empty or offline yet
 let pendingScore=null;
-let histOpen=false;          // player tapped their own row open to see their recent runs
 let arenaOpen='';            // name|score|date of the board row whose arena is showing (one at a time)
 let boardExpanded=false;     // leaderboard shows top 5 until the player taps "show all" (keeps the game-over screen short on phones)
 let saveFailed=false;        // the last saved run never reached the shared board — say so under the board rather than silently keeping it local
@@ -847,26 +842,8 @@ function rankLine(all,mine){
   return '<div class="brank">'+(i<0?field:'You are <b>#'+(i+1)+'</b> &middot; '+field)+'</div>';
 }
 
-// Only your best survives on the shared board, but every run you played on this device is still
-// in localStorage. Tapping your own row shows the recent ones back.
-// ponytail: local data only, no server call - loadLocal() already caps the list at MAXBOARD.
-const HIST_MAX=5;
-function myRuns(name){
-  return loadLocal().filter(s=>s.name===name&&s.created_at)
-    .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,HIST_MAX);
-}
-// A run saved before the mosaic existed has no picture. It still gets a slot - faint and empty -
-// because dropping the canvas collapsed the thumbnail column and shunted that row's date to the
-// left, which reads as a broken image rather than as "nothing to show".
-const emptyGrid=()=>COLS+':'+ROWS+':'+Array(ROWS).fill(0).join('.');
-const histBlock=(runs,solo)=>`<div class="hist${solo?' solo':''}"><div class="hl">Your last ${runs.length} runs</div>`
-  +runs.map(r=>`<div class="hr"><span><canvas class="hmini${r.grid?'':' nog'}" data-g="${esc(r.grid||emptyGrid())}"${r.grid?'':' title="No arena saved for this run"'}></canvas>`
-    +`${esc(fullDate(r.created_at))}${r.mult?' &middot; ball &times;'+r.mult:''}</span><b>${r.score}</b></div>`).join('')
-  +`</div>`;
-
-// Another player's finished arena, under their row. Deliberately the same markup as histBlock so
-// it inherits every style and the same canvas renderer - a board row and a history row show the
-// same kind of picture, so they should look identical.
+// Another player's finished arena, under their row. Uses the .hist / .hmini markup and the same
+// canvas renderer as the board rows above it.
 // The name, date, ball speed and score are already on the row directly above, so this line carries
 // what the board has no column for: how long that run lasted.
 const arenaBlock=s=>`<div class="hist"><div class="hl">How the arena ended</div>`
@@ -889,33 +866,27 @@ function renderBoard(mine){
     +(boardLoading?'Loading scores&hellip;'
       :boardView==='today'?'No scores yet today &mdash; play to claim #1.'
       :'No scores yet &mdash; play to claim #1.')+'</div>'+warn+dayLine;return;}
-  const myName=loadName();
-  const runs=myName?myRuns(myName):[];
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
   const mineIdx=hl?list.findIndex(s=>s.name===hl.name&&s.score===hl.score):-1;
   const showAll=boardExpanded||mineIdx>=BOARD_COLLAPSED;   // never hide the player's own fresh score
   const shown=showAll?list:list.slice(0,BOARD_COLLAPSED);
-  const myTop=myRowIdx(list,myName);                          // your highest row; the rest are your other runs
   html+='<div class="grid"><span class="head h-l">#</span><span class="head h-l">name</span>'
     +'<span class="head h-r">date</span><span class="head h-r">ball</span><span class="head h-r">score</span>';
   html+=shown.map((s,i)=>{
     const me=hl&&!hl.used&&s.name===hl.name&&s.score===hl.score;
     if(me)hl.used=true;
     const rk=i<3?' r'+(i+1):'', mc=me?' me':'';
-    const own=runs.length>1&&i===myTop, oc=own?' own'+(histOpen?' open':''):'';   // only your best row carries the history caret
-    // Your own row already opens into your run history, so the arena caret goes on everyone else's.
-    // A row only offers it once the grid column exists AND that run actually saved a picture.
+    // Any row whose run saved a picture opens into "how the arena ended", one at a time.
     const akey=s.name+'|'+s.score+'|'+(s.created_at||'');
-    const arn=!own&&!!s.grid, aopen=arn&&arenaOpen===akey;
-    const cls=mc+oc+(arn?' arn'+(aopen?' open':''):'');
+    const arn=!!s.grid, aopen=arn&&arenaOpen===akey;
+    const cls=mc+(arn?' arn'+(aopen?' open':''):'');
     const at=arn?` data-k="${esc(akey)}"`:'';
-    const cv=own||arn?`<span class="cv">${(own?histOpen:aopen)?'▲':'▼'}</span>`:'';
+    const cv=arn?`<span class="cv">${aopen?'▲':'▼'}</span>`:'';
     return `<span class="rk${rk}${cls}"${at}>${i+1}</span>`
       +`<span class="nm${cls}"${at}>${esc(s.name)}${cv}</span>`
       +`<span class="dt${cls}"${at} title="${esc(fullDate(s.created_at))}${typeof s.secs==='number'?' · '+s.secs+'s':''}">${shortDate(s.created_at)}</span>`
       +`<span class="mx${cls}"${at}>${s.mult?'&times;'+s.mult:''}</span>`
       +`<span class="sc${cls}"${at}>${s.score}</span>`
-      +(own&&histOpen?histBlock(runs):'')
       +(aopen?arenaBlock(s):'');
   }).join('');
   html+='</div>';
@@ -923,16 +894,13 @@ function renderBoard(mine){
     html+=`<button class="bmore">${showAll?'Show less':'Show all '+list.length}</button>`;
   html+=rankLine(all,mine);
   html+=warn;
-  if(runs.length>1&&!shown.some(s=>s.name===myName))html+=histBlock(runs,true);
   html+=dayLine;
   board.innerHTML=html;
   drawHistMinis();
 }
 // The arena a run built is the character of that run - two 200-point runs look nothing alike.
 // The picture already exists (encGrid packs it, drawMini renders it for the share card and the
-// opponent view); this just hangs it off the runs already listed under your own row.
-// ponytail: local runs only. Board rows come from the server and carry no grid, so nothing
-// renders for other players until a column exists to hold it.
+// opponent view); this hangs it under a board row that saved one.
 function drawHistMinis(){
   board.querySelectorAll('canvas.hmini').forEach(cv=>{
     const p=(cv.dataset.g||'').split(':');
@@ -945,15 +913,14 @@ function drawHistMinis(){
   });
 }
 board.addEventListener('click',e=>{
-  const t=e.target.closest('.bmore,.own,.arn,.btab');
+  const t=e.target.closest('.bmore,.arn,.btab');
   if(!t)return;
   if(t.classList.contains('btab')){
     if(t.dataset.v===boardView)return;
     boardView=t.dataset.v;boardPicked=true;boardExpanded=false;arenaOpen='';   // a fresh view starts collapsed, like a fresh board
   }
   else if(t.classList.contains('bmore'))boardExpanded=!boardExpanded;
-  else if(t.classList.contains('arn'))arenaOpen=arenaOpen===t.dataset.k?'':t.dataset.k;   // one open at a time
-  else histOpen=!histOpen;
+  else arenaOpen=arenaOpen===t.dataset.k?'':t.dataset.k;   // .arn — one open at a time
   renderBoard();
 });
 
@@ -2687,18 +2654,14 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     console.assert(saveFailed===true&&saveGaveUp===true,'reset() must not clear a standing save warning');
     saveFailed=wf;saveGaveUp=wg;mode=wm;reset();
   })();
-  // history thumbnails: a stored run draws its arena, a run with none still holds the same slot
+  // arena thumbnails: a stored grid sizes its own picture; unreadable / oversized strings are safe
   (()=>{const box=document.createElement('div');box.className='hist';
     box.innerHTML='<canvas class="hmini" data-g="4:2:5.10"></canvas>'
-      +'<canvas class="hmini" data-g="'+COLS+':'+ROWS+':'+Array(ROWS).fill(3).join('.')+'"></canvas>'
-      +'<canvas class="hmini nog" data-g="'+emptyGrid()+'"></canvas>'
       +'<canvas class="hmini" data-g=""></canvas>'
       +'<canvas class="hmini" data-g="9999:9999:'+Array(60).fill(1).join('.')+'"></canvas>';
     board.appendChild(box);drawHistMinis();
-    const [a,real,blank,junk,huge]=box.querySelectorAll('canvas.hmini');
+    const [a,junk,huge]=box.querySelectorAll('canvas.hmini');
     console.assert(a.width===24&&a.height===12,'a stored arena sizes its own thumbnail');
-    console.assert(blank.width===real.width&&blank.height===real.height,
-      'a run with no arena holds exactly the same slot as one that has an arena');
     console.assert(junk.width===300&&junk.height===150,'an unreadable grid string is left untouched');
     console.assert(huge.width===240&&huge.height===240,'a grid posted by someone else cannot ask for a canvas big enough to kill the page');
     box.remove();
