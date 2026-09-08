@@ -1609,8 +1609,8 @@ function endGame(reason){
   renderBoard();
   if(qualifies(score)){                    // decide from the board already loaded — no network wait, no race
     pendingScore={score,secs,blocks:blk,mult};
-    nameInput.value=loadName();                 // your own initials from last time - still nothing is posted until Save is pressed
-    saveBtn.disabled=!nameInput.value;
+    nameInput.value='';                         // never pre-fill: the name on the board is only ever one the player typed this run
+    saveBtn.disabled=true;
     NE_OK=neOkText(boardRank(score));
     armNameEntry();
     nameEntry.classList.remove('hidden');
@@ -1654,16 +1654,10 @@ function startPlay(){
   nameEntry.classList.add('hidden');homeLink.classList.add('hidden');
   overlay.classList.add('hidden');pauseEl.classList.add('hidden');
   hud.classList.remove('hidden');showTpad(true);armBest(true);
-  hTime.textContent='0';hBlocks.textContent='0';hScore.textContent='0';   // the countdown holds the HUD on screen before frame() writes it — never show the last run's numbers
+  hTime.textContent='0';hBlocks.textContent='0';hScore.textContent='0';   // clear before the first frame lands — never flash the last run's numbers
   fit();reset();kick();
   chaseScore=0;armHudChase();renderChase(0);placeChase();
   maybeShowPtip();
-  // A run is one life, and the ball launched the instant Play was pressed - on a phone the button
-  // is mid-screen and the paddle arrows are at the bottom, so the first second was spent moving a
-  // thumb. Competitive already opens with a countdown; solo now gets the same beat.
-  // ponytail: reuses the pause countdown (frame() freezes the ball while resumeIn>0, tap/space skips a second).
-  resumeIn=2000;pNum.textContent=Math.ceil(resumeIn/1000);
-  showPausePanel('count');pauseEl.classList.remove('hidden');
 }
 
 // nudge the controls once per player — how to move, then how to pause
