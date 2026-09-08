@@ -36,10 +36,11 @@ self.addEventListener('fetch', e => {
   // Unbounded growth, and an over-budget origin gets its whole storage evicted on iOS,
   // which takes the offline shell with it.
   const key = url.origin + url.pathname;
-  // Belt and braces: a synchronous throw here would reject respondWith and leave the player
-  // with a dead page, so an engine that dislikes the option just gets the ordinary fetch.
-  // A rejected promise is already safe - the race below falls through to the cached copy.
-  const ask = r => { try { return fetch(r, {cache: 'reload'}); } catch (_) { return fetch(r); } };
+  // Ask by URL, not by handing the navigation Request back to fetch with an init: pairing the two
+  // is what a navigation request will not survive, and the failure is silent - it falls through to
+  // an ordinary cached fetch and the player quietly keeps the old build. Measured, not assumed.
+  // Belt and braces: a synchronous throw here would reject respondWith and leave a dead page.
+  const ask = r => { try { return fetch(r.url, {cache: 'reload'}); } catch (_) { return fetch(r); } };
   const net = (e.request.mode === 'navigate' ? ask(e.request) : fetch(e.request)).then(res => {
     // a 404 served during a deploy must never become the offline copy of the game
     if (res.ok) { const copy = res.clone(); caches.open(C).then(c => c.put(key, copy)).catch(() => {}); }
