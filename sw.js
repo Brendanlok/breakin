@@ -2,11 +2,18 @@
 // so caching six files is all "works on a plane / in a lift" takes.
 // ponytail: network-first, always. Offline gets the last good copy; online can never be
 // served a stale build, so a launch-day hotfix still lands on the next reload.
+// The catch that made that half true: Pages serves the page with Cache-Control max-age=600,
+// and our own fetch reads through the browser's HTTP cache like any other - so for ten minutes
+// after a deploy the "network" copy could itself be the old build. Every request for the page
+// is made with cache:'reload' to skip that one cache. Only the page: the icons and manifest
+// never change, and re-downloading them on every load would cost real bytes for nothing.
 const C = 'breakin-v2';
 const ASSETS = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'og.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(C).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(C)
+    .then(c => c.addAll(ASSETS.map(u => new Request(u, {cache: 'reload'}))))   // a fresh copy at install, not whatever the HTTP cache is holding
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -29,7 +36,11 @@ self.addEventListener('fetch', e => {
   // Unbounded growth, and an over-budget origin gets its whole storage evicted on iOS,
   // which takes the offline shell with it.
   const key = url.origin + url.pathname;
-  const net = fetch(e.request).then(res => {
+  // Belt and braces: a synchronous throw here would reject respondWith and leave the player
+  // with a dead page, so an engine that dislikes the option just gets the ordinary fetch.
+  // A rejected promise is already safe - the race below falls through to the cached copy.
+  const ask = r => { try { return fetch(r, {cache: 'reload'}); } catch (_) { return fetch(r); } };
+  const net = (e.request.mode === 'navigate' ? ask(e.request) : fetch(e.request)).then(res => {
     // a 404 served during a deploy must never become the offline copy of the game
     if (res.ok) { const copy = res.clone(); caches.open(C).then(c => c.put(key, copy)).catch(() => {}); }
     return res;
