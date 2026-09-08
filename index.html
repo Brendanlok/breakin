@@ -84,7 +84,7 @@
   #msg:empty{display:none;}                          /* nothing to say — don't reserve the line */
   #overlay.gameover #msg{font-size:13px;color:#8592a6;margin:0 0 4px;max-width:270px;}
   /* Game over: Play again sits directly under the result. The three settings blocks
-     were already chosen on the menu, so they collapse behind one "Change settings" row. */
+     were already chosen on the menu, so they collapse behind one row that names them. */
   #overlay.gameover #setToggle,#overlay.gameover #speed,
   #overlay.gameover #tctl,#overlay.gameover #sctl{order:1;}
   #overlay.gameover #homeLink,#overlay.gameover #board,
@@ -557,7 +557,7 @@
       <button id="saveBtn">Save</button>
     </div>
   </div>
-  <button id="setToggle" aria-expanded="false">Change settings</button>
+  <button id="setToggle" aria-expanded="false">Change speed &amp; sound</button>
   <div id="speed">
     <span class="slbl">Ball speed &nbsp;&middot;&nbsp; score <b id="multVal">&times;3</b></span>
     <input type="range" id="multSlider" min="1" max="5" step="0.5" value="3">
@@ -1349,6 +1349,7 @@ function tiltFallback(){
 }
 if(isTouch){
   tctl.classList.remove('hidden');
+  setToggle.textContent='Change speed, controls & sound';   // the panel really does hold all three here
   markTouchBtns();                             // reflect the saved choice — no permission prompt on load
   tctlBtns.forEach(b=>b.addEventListener('click',()=>setTouchCtl(b.dataset.t)));
   tpad.querySelectorAll('.tp').forEach(el=>{
@@ -1792,7 +1793,12 @@ addEventListener('keydown',e=>{
     if(adminSeq.endsWith('admin')){adminSeq='';e.preventDefault();openAdmin();return;}
   }
   if(k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){held.add(k);e.preventDefault();return;}
-  if(space&&mode!=='play'&&!typingInText()&&compete.classList.contains('hidden')&&vsCd.classList.contains('hidden')){
+  // The name box takes focus on its own whenever the unsaved-score guard fires, and it keeps it
+  // after the warning times out - so on the game-over screen Space was being typed into the box
+  // instead of starting the next run, under a button that says "press Space". A space can never
+  // be part of a name (cleanName strips it), so there is nothing to lose by letting it through.
+  const inNameBox=document.activeElement===nameInput;
+  if(space&&mode!=='play'&&(!typingInText()||inNameBox)&&compete.classList.contains('hidden')&&vsCd.classList.contains('hidden')){
     e.preventDefault();startPlay();                     // Space = solo play / play again from any menu screen
   }
 });
