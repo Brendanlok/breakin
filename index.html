@@ -2005,6 +2005,10 @@ const cViews={choice:document.getElementById('cChoice'),invite:document.getEleme
 const cCodeEl=document.getElementById('cCode');
 const cQR=document.getElementById('cQR');
 const cNameIn=document.getElementById('cName');
+// The box opens empty - nothing is ever typed into it for you. Leave it empty and you play under
+// this handle. It is rolled once when the screen opens, not inside myName(): that runs twice per
+// match (room record + local copy), and a fresh roll each time would file you under two names.
+let vsSuggest=randomName();
 const cInviteBtn=document.getElementById('cInvite');
 const cCodeIn=document.getElementById('cCodeIn');
 const cJoinErr=document.getElementById('cJoinErr');
@@ -2120,7 +2124,7 @@ const showCView=name=>{
 function openCompete(view){compete.classList.remove('hidden');showCView(view||'choice');}
 // One name rule for the whole game: what you type here is what lands on the leaderboard, and the
 // banned list applies to the name your opponent sees too - not just to the public board.
-function myName(){let n=cleanName(cNameIn.value)||loadName()||randomName();if(!nameAllowed(n))n=randomName();
+function myName(){let n=cleanName(cNameIn.value)||vsSuggest;if(!nameAllowed(n))n=vsSuggest;
   try{localStorage.setItem('breakin-name',n);}catch(e){}return n;}
 
 function vsCleanup(keepRoom){
@@ -2536,7 +2540,7 @@ function vsAbort(){
 document.getElementById('competeBtn').addEventListener('click',()=>{
   if(unsavedGuard())return;              // third way off the game-over card, and it sits under the name box too:
                                          // starting a match hides the name entry for good, so the score would just vanish
-  cNameIn.value=loadName()||randomName();openCompete('choice');});
+  cNameIn.value='';vsSuggest=randomName();openCompete('choice');});
 cNameIn.addEventListener('input',()=>{const c=cleanName(cNameIn.value);if(c!==cNameIn.value)cNameIn.value=c;});
 document.getElementById('cInvite').addEventListener('click',startInvite);
 document.getElementById('cJoin').addEventListener('click',()=>{resetJoinView();cCodeIn.value='';showCView('join');setTimeout(()=>cCodeIn.focus(),30);});
@@ -2600,7 +2604,7 @@ startAttract();                            // kick off the demo behind the menu
 if((location.hash||'').toLowerCase()==='#admin')openAdmin();
 {                                          // opened from a friend's invite link → jump into Join with the code filled
   const jm=(new URLSearchParams(location.search).get('join')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
-  if(jm){cNameIn.value=loadName()||randomName();resetJoinView();openCompete('join');cCodeIn.value=jm;}
+  if(jm){cNameIn.value='';vsSuggest=randomName();resetJoinView();openCompete('join');cCodeIn.value=jm;}
 }
 
 // ponytail: self-checks for the two invariants — never place onto the ball, always find an exit
