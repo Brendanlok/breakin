@@ -55,6 +55,13 @@
   #hud .st-score b{color:#ffd25f;font-size:34px;text-shadow:0 0 22px currentColor;}
   #hud .st-score{padding:5px 13px;}                 /* the score is what the run is about; time and blocks are context */
   #hud .st-score i{color:#a8935f;}
+  /* Solo: lift the sound button out of the row so the three numbers centre on the screen and
+     the score sits dead centre, instead of the whole row being shoved left by the button.
+     In a match the rival tile is showing and the row needs every pixel, so it stays in flow;
+     and below 340px there is not room beside the tiles for it, so it stays in flow there too. */
+  @media (min-width:340px){
+    #hud .st-opp.hidden ~ .st-sfx{position:absolute;right:6px;top:0;bottom:0;}
+  }
   #hud .st-sfx{pointer-events:auto;cursor:pointer;border:0;min-width:0;padding:0 9px;
     justify-content:center;-webkit-tap-highlight-color:transparent;}
   #hud .st-sfx svg{width:20px;height:20px;fill:#9fb0c8;stroke:#9fb0c8;stroke-width:1.8;stroke-linecap:round;}
