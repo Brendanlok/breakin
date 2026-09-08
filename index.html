@@ -52,7 +52,9 @@
     font-style:normal;margin-top:4px;}
   #hud .st-time b{color:#57d3ff;}
   #hud .st-blocks b{color:#b98bff;}
-  #hud .st-score b{color:#ffd25f;}
+  #hud .st-score b{color:#ffd25f;font-size:34px;text-shadow:0 0 22px currentColor;}
+  #hud .st-score{padding:5px 13px;}                 /* the score is what the run is about; time and blocks are context */
+  #hud .st-score i{color:#a8935f;}
   #hud .st-sfx{pointer-events:auto;cursor:pointer;border:0;min-width:0;padding:0 9px;
     justify-content:center;-webkit-tap-highlight-color:transparent;}
   #hud .st-sfx svg{width:20px;height:20px;fill:#9fb0c8;stroke:#9fb0c8;stroke-width:1.8;stroke-linecap:round;}
@@ -1245,12 +1247,9 @@ const CAP=(ROWS-1)*COLS;              // the arena holds exactly this many block
 const SEAL_MARKS=[10,25,50,75];       // shout the crossings; a perfect run has never passed ~52%, so 75 is the far edge, not a formality
 // Until now the blocks tally was a number with no scale: 20 could have been 1% or 90%, and
 // "Arena sealed" read as a win state that did not exist. The denominator is the whole fix.
-document.getElementById('hBlkLbl').textContent=document.getElementById('goBlkLbl').textContent='of '+CAP;
 let W,H,cell,rows,spawnMaxRow;
 let grid,ball,paddle,placed,empties,pending,noPlace,stuckMs,stuckX,stuckY,dryMs,lastT,elapsed=0;
 let flashes=[];                              // {r,c,t} — short pop drawn over a cell the moment it turns solid
-let padFx=null;                              // {off,t} — where on the bat the last hit landed. Both trap endings tell the
-                                             // player to centre their hits; nothing showed them where they were hitting.
 let over=false,mode='attract',rafOn=false;   // mode: 'attract' (demo behind the menu) | 'play' | 'over'
 let lastFrameAt=0,lastFrameT=-1;   // when the loop last actually drew — the watchdog reads these
 const HUD_RESERVE=82;                 // keep the top clear for the TIME/BLOCKS/SCORE HUD
@@ -1429,7 +1428,6 @@ function placeChase(){
     chase.style.left=left+'px';chase.style.top=r.top+'px';
     chase.classList.remove('hidden');
   }
-  hudChaseLbl(chaseScore);          // panel just appeared or vanished (rotate) - the tile follows it
 }
 
 // The panel above needs 176px of dead space beside the arena, so on a phone it never shows and a
@@ -1457,16 +1455,6 @@ function announcePass(score,prev){
   sfx('pass');
 }
 
-function hudChaseLbl(score){        // true = the tile label is ours this run
-  if(!chaseTargets.length)return false;
-  if(!chase.classList.contains('hidden')){   // wide enough for the panel - it says it better
-    hScoreLbl.textContent=beatBest?'new best':'score';
-    return false;
-  }
-  const next=chaseTargets.find(t=>t>score);
-  hScoreLbl.textContent=next?'next '+next:'leading';
-  return true;
-}
 
 const newGrid=()=>Array.from({length:rows},()=>new Array(COLS).fill(0));
 const filled=(r,c)=>r>=0&&r<rows&&c>=0&&c<COLS&&!!grid[r][c];
@@ -1491,7 +1479,7 @@ function minAngle(){                  // stop the ball crawling along / trapping
 
 function reset(){
   grid=newGrid();                    // starts completely empty
-  flashes.length=0;padFx=null;
+  flashes.length=0;
   paddle={w:Math.max(52,cell*2.6),x:W/2};
   placed=0;elapsed=0;noPlace=0;dryMs=0;pending=null;   // one life — a miss ends the game
   // ponytail: the two save-warning flags used to be cleared here. They are save state, not arena
@@ -1863,7 +1851,6 @@ function step(dt){
     const pyv=paddleY();
     if(ball.vy>0&&ball.y+ball.r>=pyv&&ball.y+ball.r<=pyv+cell*0.7&&Math.abs(ball.x-paddle.x)<=paddle.w/2+ball.r){
       const off=(ball.x-paddle.x)/(paddle.w/2);
-      padFx={off:clamp(off,-1,1),t:performance.now()};
       ball.vx=ball.vx+off*1.5;
       ball.vy=-Math.abs(ball.vy);
       setSpeed();
@@ -1924,22 +1911,6 @@ function draw(){
   pPath.arcTo(px+pw,py,px+pw,py+ph,rr);pPath.arcTo(px+pw,py+ph,px,py+ph,rr);
   pPath.arcTo(px,py+ph,px,py,rr);pPath.arcTo(px,py,px+pw,py,rr);pPath.closePath();
   ctx.fillStyle='#dfe9f7';ctx.fill(pPath);
-  if(padFx){                              // the contact mark: cyan dead centre, hot orange out at the tip.
-    const e=1-(performance.now()-padFx.t)/420;          // it rides the bat, so it reads as "you hit HERE", not "the ball was there"
-    if(e<=0)padFx=null;
-    else{
-      // hue climbs the LONG way round (cyan -> violet -> hot orange): the short way runs through
-      // green at half-offset, and a green "you are fine" at the exact point the ball starts flying wide
-      // teaches the opposite of the truth. This way also matches the arena's own blue-to-red gradient.
-      const a=Math.abs(padFx.off),hue=Math.round(196+186*a)%360,mw=Math.max(6,pw*0.13);
-      ctx.save();ctx.clip(pPath);
-      ctx.globalAlpha=Math.min(1,e*1.6);
-      ctx.fillStyle=`hsl(${hue} 100% 55%)`;
-      ctx.shadowColor=`hsl(${hue} 100% 60%)`;ctx.shadowBlur=14*e;
-      ctx.fillRect(paddle.x+padFx.off*pw/2-mw/2,py,mw,ph);
-      ctx.restore();
-    }
-  }
   // the ball heats toward red and a ring closes over it while a timeout ending is counting down
   const dgr=Math.max(0,Math.min(1,Math.max((stuckMs-800)/1200,(noPlace-24)/16,(dryMs-7000)/3000)));
   ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
@@ -1990,11 +1961,11 @@ function frame(t){
     hBlocks.textContent=placed;
     const liveScore=Math.round(placed*mult);
     hScore.textContent=liveScore;
-    if(liveScore!==chaseScore){const prev=chaseScore;chaseScore=liveScore;renderChase(liveScore);hudChaseLbl(liveScore);announcePass(liveScore,prev);}
+    if(liveScore!==chaseScore){const prev=chaseScore;chaseScore=liveScore;renderChase(liveScore);announcePass(liveScore,prev);}
     if(runBest&&!beatBest&&liveScore>runBest){
       beatBest=true;
       hudScore.classList.add('newbest');
-      if(!hudChaseLbl(liveScore))hScoreLbl.textContent='new best';   // the gold pulse already says it on a phone
+      hScoreLbl.textContent='new best';
     }
     if(versus)vsRenderBar();               // keep ahead/behind + the "you overtook them" callout live, not just on the 1.3s poll
   }
