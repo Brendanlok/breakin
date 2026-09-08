@@ -74,7 +74,9 @@
     font-style:normal;margin-top:4px;}
   #goStats .st-time b{color:#57d3ff;}
   #goStats .st-blocks b{color:#b98bff;}
-  #goStats .st-score b{color:#ffd25f;}
+  #goStats .st-score b{color:#ffd25f;font-size:35px;text-shadow:0 0 22px currentColor;}
+  #goStats .st-score{padding:6px 15px;}
+  #goStats .st-score i{color:#a8935f;}
   #goSub{font-size:12.5px;color:#8592a6;letter-spacing:.02em;margin-top:2px;}
   #goSub b{color:#ffd25f;font-weight:700;}
   #overlay.gameover #speed .hint{display:none;}      /* just played — no need to re-explain the slider */
@@ -1578,7 +1580,6 @@ function endGame(reason){
   const secs=Math.floor(elapsed), blk=placed, score=Math.round(blk*mult);
   const prevBest=loadBest(), newBest=score>0&&score>prevBest;
   if(newBest)saveBest(score);
-  const bestShown=Math.max(prevBest,score);
   boardExpanded=false;                     // start the game-over board collapsed so the screen stays short
   badgeEl.textContent=reason||'Game over';
   titleEl.textContent='GAME OVER';
@@ -1586,8 +1587,7 @@ function endGame(reason){
   goTime.textContent=secs+'s';goBlk.textContent=blk;goScore.textContent=score;
   goStats.classList.remove('hidden');overlay.classList.add('gameover');
   goSub.innerHTML=`${blk} block${blk===1?'':'s'} &times; ${mult} speed = ${score}`
-    +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`
-      :bestShown>0?` &nbsp;&middot;&nbsp; best ${bestShown}`:'');
+    +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`:'');   // how the score was made, never what it fell short of
   goSub.classList.remove('hidden');
   lastRun=score>0?{score,blocks:blk,mult,grid:encGrid()}:null;   // keep the finished mosaic — the share picture is drawn from it   // a 0-block run is nothing to brag about
   shareBtn.classList.toggle('hidden',!lastRun);
