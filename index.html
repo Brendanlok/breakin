@@ -662,10 +662,9 @@ const DEV=/[?&#]dev(=1|\b)/.test(location.href);
 // there is handled - the fallbacks in lbFetch/lbSubmit drop the field and carry on, nothing is
 // lost - but it logs a 400 in every visitor's console, and a clean console is worth more before
 // launch than a feature that is waiting on a migration anyway.
-// >>> SET THIS TO true IN THE SAME CHANGE THAT CONFIRMS 13-leaderboard-grid.sql HAS BEEN RUN. <<<
-// Until then your own arenas still show on the this-device board; only other players' are absent.
+// Lok ran the migration on 2026-09-10 and the column was probed live that day, so this is on.
 // ponytail: one constant, no probe request. The runtime fallback below stays as the net.
-let lbGrid=false;
+let lbGrid=true;
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pad2=n=>String(n).padStart(2,'0');
