@@ -882,8 +882,8 @@ function renderBoard(mine){
     :saveFailed?'<div class="bwarn">Could not reach the leaderboard &mdash; still trying. This run is saved on this device.</div>':'';
   if(!list.length){board.innerHTML=html+'<div class="empty">'
     +(boardLoading?'Loading scores&hellip;'
-      :boardView==='today'?'No scores yet today &mdash; play to claim #1.'
-      :'No scores yet &mdash; play to claim #1.')+'</div>'+warn+dayLine;return;}
+      :boardView==='today'?'No scores yet today &mdash; '+(pendingScore?'save yours':'play')+' to claim #1.'
+      :'No scores yet &mdash; '+(pendingScore?'save yours':'play')+' to claim #1.')+'</div>'+warn+dayLine;return;}
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
   const mineIdx=hl?list.findIndex(s=>s.name===hl.name&&s.score===hl.score):-1;
   const showAll=boardExpanded||mineIdx>=BOARD_COLLAPSED;   // never hide the player's own fresh score
@@ -944,16 +944,17 @@ board.addEventListener('click',e=>{
 
 // Judged against TODAY's board no matter which tab is open: the daily race is what a player enters,
 // and today's rows are a subset of all rows, so this is never stricter than the all-time cut.
+const judgedList=()=>(remoteToday||loadLocal().filter(isToday)).slice().sort(rankCmp);
 function qualifies(score){
   if(score<=0)return false;
-  const list=(remoteToday||loadLocal().filter(isToday)).slice().sort(rankCmp);
+  const list=judgedList();
   return list.length<MAXBOARD||score>list[list.length-1].score;
 }
 
 // Where this run lands on the board it was judged against. 1-based; ties sit below the
 // rows already there. Used only for the label — qualifies() still decides who gets to save.
 function boardRank(score){
-  const list=(remoteToday||loadLocal().filter(isToday)).slice().sort(rankCmp);
+  const list=judgedList();
   let i=0;while(i<list.length&&!(score>list[i].score))i++;
   return i+1;
 }
@@ -1000,7 +1001,10 @@ const neLabel=nameEntry.querySelector('.ne-label');
 // flop on launch day. Say the actual position instead — honest, and it earns its star back
 // as the board fills.
 let NE_OK='&#9733; You made the leaderboard';
-const neOkText=r=>r===1?'&#9733; Top of today’s board':'&#9733; #'+r+' on today’s board';
+// #1 on a board with nothing on it is not a summit yet - say what it actually is, or the badge
+// reads as a boast on every run of a quiet morning.
+const neOkText=(r,first)=>r>1?'&#9733; #'+r+' on today’s board'
+  :first?'&#9733; First on today’s board':'&#9733; Top of today’s board';
 let leaveArmed=false;
 let neMsgSeq=0;                 // whichever message went up last owns the label - one timer must not clear another's
 function armNameEntry(){leaveArmed=false;neLabel.innerHTML=NE_OK;neLabel.classList.remove('warn');}
@@ -1609,18 +1613,18 @@ function endGame(reason){
   hud.classList.add('hidden');showTpad(false);
   bumpGames();
   if(gameCount()%4===0){fbLink.classList.add('nudge');fbLink.textContent='★ Enjoying Breakin? Tell me what to fix / add →';}
-  renderBoard();
   if(qualifies(score)){                    // decide from the board already loaded — no network wait, no race
     pendingScore={score,secs,blocks:blk,mult};
     nameInput.value='';                         // never pre-fill: the name on the board is only ever one the player typed this run
     saveBtn.disabled=true;
-    NE_OK=neOkText(boardRank(score));
+    NE_OK=neOkText(boardRank(score),!judgedList().length);
     armNameEntry();
     nameEntry.classList.remove('hidden');
   }else{
     pendingScore=null;
     nameEntry.classList.add('hidden');
   }
+  renderBoard();                           // after pendingScore, so the empty board says "save yours", not "play"
   refreshBoard();                          // freshen the displayed numbers in the background
 }
 
@@ -2626,6 +2630,10 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
   console.assert(fixName({name:'!!!',score:9}).name==='PLAYER','a legacy name with nothing legal left still shows something');
   console.assert(NAME_ALL.every(w=>w.length<=5)&&randomName().length<=6&&/^[A-Z0-9]+$/.test(randomName()),
     'every suggested name is itself a legal name');
+
+  console.assert(/First on/.test(neOkText(1,true))&&/Top of/.test(neOkText(1,false)),
+    '#1 on an empty board is "first", not "top"');
+  console.assert(neOkText(3,true)===neOkText(3,false),'below #1 the wording does not depend on the board being empty');
 
   // the unsaved-score guard: bounces once, then gets out of the way
   (()=>{const wasPending=pendingScore,wasHidden=nameEntry.classList.contains('hidden'),wasArmed=leaveArmed;
