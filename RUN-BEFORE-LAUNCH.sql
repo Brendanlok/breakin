@@ -1,3 +1,6 @@
+-- ALREADY DONE 2026-09-10: passphrase rotated via the Supabase management API.
+-- This file is kept only as a reference for how the RPC is defined.
+
 -- ============================================================================
 --  BREAKIN — everything the database still needs before launch, in one paste.
 --  Written 2026-09-07 (Claude). Launch is Tuesday 8 September.

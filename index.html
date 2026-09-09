@@ -90,12 +90,12 @@
   #overlay.gameover #speed{margin-top:10px;}
   #msg:empty{display:none;}                          /* nothing to say — don't reserve the line */
   #overlay.gameover #msg{font-size:13px;color:#8592a6;margin:0 0 4px;max-width:270px;}
-  /* Game over: Play again sits directly under the result. The three settings blocks
-     were already chosen on the menu, so they collapse behind one row that names them. */
+  /* Game over: Play again sits directly under the result, then Share, then the
+     settings row (already chosen on the menu), then the board. */
   #overlay.gameover #setToggle,#overlay.gameover #speed,
-  #overlay.gameover #tctl,#overlay.gameover #sctl{order:1;}
+  #overlay.gameover #tctl,#overlay.gameover #sctl{order:2;}
   #overlay.gameover #homeLink,#overlay.gameover #board,
-  #overlay.gameover #chint,#overlay.gameover #fbLink{order:2;}
+  #overlay.gameover #chint,#overlay.gameover #fbLink{order:3;}
   #overlay.gameover:not(.setopen) #speed,
   #overlay.gameover:not(.setopen) #tctl,
   #overlay.gameover:not(.setopen) #sctl{display:none;}
@@ -103,6 +103,16 @@
   #overlay.gameover #setToggle{display:block;margin-top:16px;}
   #overlay.gameover #setToggle::after{content:' ▾';}
   #overlay.gameover.setopen #setToggle::after{content:' ▴';}
+  /* Menu: the three settings sit behind the same one-row toggle, so a first play is one tap. */
+  #overlay:not(.gameover) #setToggle{display:block;margin:12px 0 2px;}
+  #overlay:not(.gameover) #setToggle::after{content:' ▾';}
+  #overlay:not(.gameover).setopen #setToggle::after{content:' ▴';}
+  #overlay:not(.gameover):not(.setopen) #speed,
+  #overlay:not(.gameover):not(.setopen) #tctl,
+  #overlay:not(.gameover):not(.setopen) #sctl{display:none;}
+  #overlay.gameover h1{font-size:clamp(27px,8.5vw,36px);letter-spacing:.08em;margin:0 0 4px;}
+  #goSub:empty{display:none;}
+  #overlay.gameover #shareBtn{order:1;margin-top:10px;}
   #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
     padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
@@ -133,14 +143,15 @@
   #nameEntry .ne-label{color:#8fd6a0;font-size:13px;font-weight:700;letter-spacing:.04em;margin-bottom:7px;}
   #nameEntry .ne-label.warn{color:#ffcf6b;}
   #nameEntry .ne-row{display:flex;gap:8px;justify-content:center;}
-  #nameInput{padding:10px 12px;font-size:19px;border-radius:9px;border:1px solid #33455f;
-    text-transform:uppercase;letter-spacing:.22em;text-align:center;font-weight:800;width:7.2em;
-    background:#0b1220;color:#e8edf4;width:150px;outline:none;}
-  #nameInput::placeholder{color:#54657f;font-weight:700;opacity:1;}   /* a suggestion, not a value — an empty box saves nothing */
-  #nameInput:focus{border-color:#5fb0ff;}
+  #nameInput{padding:10px 12px;font-size:19px;border-radius:9px;border:1.5px solid #46587a;
+    text-transform:uppercase;letter-spacing:.22em;text-align:center;font-weight:800;
+    background:#0b1220;color:#e8edf4;width:150px;outline:none;box-shadow:0 0 0 3px rgba(95,176,255,.08);}
+  /* placeholder must not read as a filled-in value: no caps, no wide tracking, clearly dimmer */
+  #nameInput::placeholder{color:#5a6a82;font-weight:600;letter-spacing:.02em;text-transform:none;opacity:1;}
+  #nameInput:focus{border-color:#5fb0ff;box-shadow:0 0 0 3px rgba(95,176,255,.22);}
   #saveBtn{padding:10px 18px;font-size:14px;font-weight:700;border:0;border-radius:9px;
     background:#5fb0ff;color:#05121f;cursor:pointer;}
-  #saveBtn:disabled{background:#25334a;color:#66748a;cursor:default;}   /* type a name first */
+  #saveBtn:disabled{background:#3a4a63;color:#93a4bd;cursor:default;}   /* still visibly a button — type a name to enable */
   #board{margin:28px auto 4px;width:286px;max-width:88vw;font-variant-numeric:tabular-nums;
     border:1px solid rgba(120,150,200,.16);border-radius:12px;padding:13px 15px 11px;
     background:#0a0f18;}  /* opaque: the attract demo's paddle used to slide through the rows */
@@ -555,9 +566,9 @@
   </div>
   <div id="goSub" class="hidden"></div>
   <div id="nameEntry" class="hidden">
-    <div class="ne-label">&#9733; You made the leaderboard</div>
+    <div class="ne-label">&#9733; You made the board &mdash; add your name</div>
     <div class="ne-row">
-      <input id="nameInput" maxlength="6" placeholder="ABC123" autocomplete="off" spellcheck="false" autocapitalize="characters" autocorrect="off" inputmode="text" aria-label="Your initials, up to 6 letters or numbers">
+      <input id="nameInput" maxlength="6" placeholder="your name" autocomplete="off" spellcheck="false" autocapitalize="characters" autocorrect="off" inputmode="text" aria-label="Your initials, up to 6 letters or numbers">
       <button id="saveBtn">Save</button>
     </div>
   </div>
@@ -999,11 +1010,12 @@ const neLabel=nameEntry.querySelector('.ne-label');
 // The board starts nearly empty, so "you made the leaderboard" would fire for a 2-second
 // flop on launch day. Say the actual position instead — honest, and it earns its star back
 // as the board fills.
-let NE_OK='&#9733; You made the leaderboard';
+let NE_OK='&#9733; You made the board &mdash; add your name';
 // #1 on a board with nothing on it is not a summit yet - say what it actually is, or the badge
-// reads as a boast on every run of a quiet morning.
-const neOkText=(r,first)=>r>1?'&#9733; #'+r+' on today’s board'
-  :first?'&#9733; First on today’s board':'&#9733; Top of today’s board';
+// reads as a boast on every run of a quiet morning. Every label ends with the action, so it is
+// obvious the box below is a thing to fill in, not a result.
+const neOkText=(r,first)=>(r>1?'&#9733; #'+r+' on today’s board'
+  :first?'&#9733; First on today’s board':'&#9733; Top of today’s board')+' &mdash; add your name';
 let leaveArmed=false;
 let neMsgSeq=0;                 // whichever message went up last owns the label - one timer must not clear another's
 function armNameEntry(){leaveArmed=false;neLabel.innerHTML=NE_OK;neLabel.classList.remove('warn');}
@@ -1310,11 +1322,15 @@ const MAX_MULT=5;                            // slider top stop. The server guar
 let mult=3;
 try{const s=parseFloat(localStorage.getItem('breakin-mult'));if(s>=1&&s<=MAX_MULT)mult=s;}catch(e){}
 const ballFactor=()=>0.62+0.3*mult;          // mult 1 -> 0.92x ... mult 5 -> 2.12x base speed
+function syncSetToggle(){                     // the collapsed row names what it holds, incl. the live speed
+  setToggle.textContent='Speed ×'+mult+(isTouch?' · controls · sound':' · sound');
+}
 function setMult(m){
   if(mode==='play')return;                   // cannot change speed mid-game
   mult=Math.min(MAX_MULT,Math.max(1,Math.round(m*2)/2));
   multSlider.value=mult;
   multVal.textContent='×'+mult;
+  syncSetToggle();
   try{localStorage.setItem('breakin-mult',mult);}catch(e){}
   if(mode==='attract'&&typeof ball!=='undefined'&&ball){   // retune the running demo ball, don't reset it
     ball.base=Math.max(3.2,cell*0.135)*ballFactor();
@@ -1359,7 +1375,7 @@ function tiltFallback(){
 }
 if(isTouch){
   tctl.classList.remove('hidden');
-  setToggle.textContent='Change speed, controls & sound';   // the panel really does hold all three here
+  syncSetToggle();                             // label now knows controls are in the panel too
   markTouchBtns();                             // reflect the saved choice — no permission prompt on load
   tctlBtns.forEach(b=>b.addEventListener('click',()=>setTouchCtl(b.dataset.t)));
   tpad.querySelectorAll('.tp').forEach(el=>{
@@ -1597,8 +1613,7 @@ function endGame(reason){
   msgEl.textContent=whyEnded(reason);   // the badge names the ending; four of the six are meaningless without a line of plain English
   goTime.textContent=secs+'s';goBlk.textContent=blk;goScore.textContent=score;
   goStats.classList.remove('hidden');overlay.classList.add('gameover');
-  goSub.innerHTML=`${blk} block${blk===1?'':'s'} &times; ${mult} speed = ${score}`
-    +(newBest?` &nbsp;&middot;&nbsp; <b>&#9733; new best!</b>`:'');   // how the score was made, never what it fell short of
+  goSub.innerHTML=newBest?`<b>&#9733; new best</b>`:'';   // the three tiles already show blocks / score; only the milestone earns a line
   goSub.classList.remove('hidden');
   lastRun=score>0?{score,blocks:blk,mult,grid:encGrid()}:null;   // keep the finished mosaic — the share picture is drawn from it   // a 0-block run is nothing to brag about
   shareBtn.classList.toggle('hidden',!lastRun);

@@ -1,3 +1,6 @@
+-- ALREADY DONE 2026-09-10: passphrase rotated via the Supabase management API.
+-- This file is kept only as a reference for how the RPC is defined.
+
 -- 12-rotate-admin-passphrase.sql
 --
 -- ===================================================================
