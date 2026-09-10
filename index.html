@@ -2074,7 +2074,8 @@ function vsToast(text,ms){                    // brief centred match callout (op
 const CODE_ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no I L O / 0 1 - unambiguous read aloud or typed
 const makeCode=()=>{let s='';for(let i=0;i<6;i++)s+=CODE_ALPHABET[Math.floor(Math.random()*CODE_ALPHABET.length)];return s;};
 const joinURL=code=>location.origin+location.pathname+'?join='+code;
-let roomCode='';
+let roomCode='';    // the room THIS tab is hosting, if any. Outlives vs on purpose: vsCleanup(true)
+                    // nulls vs after a match but leaves the row alive, and something has to still own it.
 
 // server clock (Date header, ~1s resolution - enough for a shared 3-2-1)
 let srvOffset=0;
@@ -2160,7 +2161,7 @@ function resetCompeteName(){
 function vsCleanup(keepRoom){
   if(vs){
     clearInterval(vs.poll);clearInterval(vs.push);clearInterval(vs.cdInt);clearInterval(vs._rmInt);clearTimeout(vs._spdT);
-    if(vs.role==='host'&&!keepRoom)roomDelete(vs.code);
+    if(vs.role==='host'&&!keepRoom){roomDelete(vs.code);if(roomCode===vs.code)roomCode='';}   // deliberate exit: room gone, nothing left to release
   }
   vs=null;versus=false;
   hudOpp.classList.add('hidden');vsCd.classList.add('hidden');cRematchPanel.classList.add('hidden');
@@ -2170,10 +2171,12 @@ function closeCompete(){
   compete.classList.add('hidden');
   cJoinErr.textContent='';cJoinErr.classList.remove('ok');
   vsCleanup();
+  if(roomCode){roomDelete(roomCode);roomCode='';}   // leaving competitive for good: vs is already null after a match, so vsCleanup cannot free the room itself
   if(overlay.classList.contains('hidden'))startAttract();   // came out of a match -> bring the menu back
 }
 
 async function startInvite(){
+  if(roomCode)roomDelete(roomCode);        // a room left over from the last match is ours to release before we burn a second code
   roomCode=makeCode();
   cCodeEl.textContent=roomCode.split('').join(' ');
   drawQR(joinURL(roomCode));
@@ -2632,7 +2635,10 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)return;kick
 // the guest sees the room vanish and gets "The other player left" instead of a 12s stale-heartbeat
 // stall. ponytail: the commented-out 3h pg_cron sweep in 03-rooms.sql is still the backstop for
 // what this cannot catch (crash, force-quit, flat battery) — it needs Lok to run it.
-window.addEventListener('pagehide',e=>{if(!e.persisted&&vs&&vs.role==='host')roomDelete(vs.code);});
+// Keyed on roomCode, not vs: vsEndMatch calls vsCleanup(true), which keeps the room for the
+// rematch flow but nulls vs — so from the result screen onward a vs-based guard was false and
+// the room was stranded again. Only a host ever sets roomCode, so a guest still deletes nothing.
+window.addEventListener('pagehide',e=>{if(!e.persisted&&roomCode)roomDelete(roomCode);});
 // Last resort: visibilitychange does not fire in every embedded browser, so poll for a loop
 // that has stopped drawing. kick() is a no-op while frames are arriving.
 setInterval(()=>{if(rafOn)kick();},2000);
@@ -2686,6 +2692,17 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
   console.assert(/First on/.test(neOkText(1,true))&&/Top of/.test(neOkText(1,false)),
     '#1 on an empty board is "first", not "top"');
   console.assert(neOkText(3,true)===neOkText(3,false),'below #1 the wording does not depend on the board being empty');
+
+  // who owns the room after a match ends — the unload handler has nothing else to go on
+  (()=>{const wasVs=vs,wasCode=roomCode,real=roomDelete,gone=[];
+    roomDelete=c=>gone.push(c);
+    vs={role:'host',code:'AAA111'};roomCode='AAA111';vsCleanup(true);
+    console.assert(roomCode==='AAA111'&&gone.length===0,'a match ending keeps the host room, so the rematch has something to go back to');
+    vs={role:'host',code:'AAA111'};vsCleanup();
+    console.assert(gone[0]==='AAA111'&&roomCode==='','a deliberate exit deletes the room and stops the unload handler deleting it twice');
+    vs={role:'guest',code:'BBB222'};roomCode='';vsCleanup();
+    console.assert(gone.length===1,'a guest leaving never deletes the room the host owns');
+    roomDelete=real;vs=wasVs;roomCode=wasCode;})();
 
   // the unsaved-score guard: bounces once, then gets out of the way
   (()=>{const wasPending=pendingScore,wasHidden=nameEntry.classList.contains('hidden'),wasArmed=leaveArmed;
