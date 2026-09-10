@@ -889,9 +889,12 @@ function renderBoard(mine){
   // Both tabs empty is not two boards, it is no board. Offering Today / All time then asks the
   // player to choose between two panels that say exactly the same thing, and the switcher reads as
   // the only thing on the panel that works. Hide it until there is a row somewhere.
-  const bare=!boardLoading&&!boardFor('today').length&&!boardFor('all').length;
+  // Hidden while loading as well: otherwise the switcher appears for a moment and is then taken
+  // away again on an empty board. Better for it to arrive WITH the rows than to arrive and leave.
+  const empty=!boardFor('today').length&&!boardFor('all').length;
+  const bare=!boardLoading&&empty;
   let html='<div class="bt">Leaderboard'+tag+'</div>'
-    +(bare?'':'<div class="btabs"><button class="btab'+(boardView==='today'?' on':'')+'" data-v="today">Today</button>'
+    +(empty?'':'<div class="btabs"><button class="btab'+(boardView==='today'?' on':'')+'" data-v="today">Today</button>'
     +'<button class="btab'+(boardView==='all'?' on':'')+'" data-v="all">All time</button></div>');
   const dayLine=boardView==='today'?'<div class="bday">Same starting ball for everyone today</div>':'';
   // A refused save must be said on the empty board too. That is precisely when it is most likely:
