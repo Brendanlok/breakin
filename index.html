@@ -2100,7 +2100,7 @@ async function roomPatch(code,fields){
     headers:rHead({Prefer:'return=minimal'}),body:JSON.stringify(fields)});noteTime(r);return r.ok;}
   catch(e){return false;}
 }
-function roomDelete(code){try{fetch(ROOMS_URL+'?code=eq.'+encodeURIComponent(code),{method:'DELETE',headers:rHead({Prefer:'return=minimal'})}).catch(()=>{});}catch(e){}}
+function roomDelete(code){try{fetch(ROOMS_URL+'?code=eq.'+encodeURIComponent(code),{method:'DELETE',keepalive:true,headers:rHead({Prefer:'return=minimal'})}).catch(()=>{});}catch(e){}}
 
 let vs=null;        // competitive session state, null when not in one
 let versus=false;   // true only while a competitive game is actually being played / just ended
@@ -2623,6 +2623,16 @@ document.addEventListener('touchend',e=>{
   tapT=now;tapX=t.clientX;tapY=t.clientY;
 },{passive:false});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)return;kick();if(vs)vsTick();});
+// A host who closed the tab or navigated away used to leave the lobby row behind forever:
+// roomDelete only ever ran from vsCleanup, i.e. a deliberate Cancel / Back. Every abandoned
+// lobby permanently burns one of the 6-char join codes and a free-tier row, and a launch burst
+// is exactly the traffic that half-starts a lot of invites. keepalive is the part that matters —
+// a plain fetch is killed with the page on unload. persisted=true means the page is only going
+// into the bfcache (phone locked, app switched) and may well come back, so leave that room alive;
+// the guest sees the room vanish and gets "The other player left" instead of a 12s stale-heartbeat
+// stall. ponytail: the commented-out 3h pg_cron sweep in 03-rooms.sql is still the backstop for
+// what this cannot catch (crash, force-quit, flat battery) — it needs Lok to run it.
+window.addEventListener('pagehide',e=>{if(!e.persisted&&vs&&vs.role==='host')roomDelete(vs.code);});
 // Last resort: visibilitychange does not fire in every embedded browser, so poll for a loop
 // that has stopped drawing. kick() is a no-op while frames are arriving.
 setInterval(()=>{if(rafOn)kick();},2000);
