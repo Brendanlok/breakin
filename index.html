@@ -732,6 +732,14 @@ function dayRand(){
   return ((h>>>0)%100000)/100000;
 }
 
+// ---- challenge link ----
+// A shared score travels in the URL as ?beat=N, so a share is a target rather than a poster: the
+// menu names the number, the chasing panel tracks it live, and the result says whether it fell.
+// Honest framing only — a score set on another day was set on another ball, so it stays "beat 318"
+// and never "beat their run on your ball".
+const challenge=(()=>{const n=+(new URLSearchParams(location.search).get('beat'));
+  return Number.isInteger(n)&&n>0&&n<1e6?n:0;})();
+
 let boardView='today';       // 'today' | 'all' — the daily race is what the game is about, so it leads
 let boardPicked=false;       // the player tapped a tab — from then on the view is theirs, never auto-switched
 let remoteAll=null,remoteToday=null;   // null = offline / not configured
@@ -1235,7 +1243,7 @@ shareBtn.addEventListener('click',async()=>{
   if(!lastRun)return;
   const {score,blocks,mult}=lastRun;
   const text=`Breakin — ${score}, sealed ${sealPct(blocks)} of the arena (${blocks} block${blocks===1?'':'s'} × ${mult} speed). Everyone gets the same ball each day — can you beat it?`;
-  const url=location.origin+location.pathname;
+  const url=location.origin+location.pathname+'?beat='+score;   // the link IS the challenge — a bare URL is only a poster
   const full=text+' '+url;
   const say=(t,stick)=>{shareBtn.textContent=t;shareBtn.classList.add('done');
     if(!stick)setTimeout(()=>{shareBtn.textContent='Share your score';shareBtn.classList.remove('done');},1900);};
@@ -1457,11 +1465,19 @@ function showTpad(on){tpad.classList.toggle('hidden',!(on&&isTouch&&touchCtl==='
 // and only when the window is actually wide enough to hold it without crowding the arena.
 const CHASE_W=176, CHASE_GAP=26;
 let chaseScore=-1, chaseTargets=[];
+// Everything a run is chasing, in one place: the top of the board plus the ?beat= target, which is
+// a row like any other so the panel, the phone label and the pass toast all track it without three
+// separate special cases.
+function chaseList(){
+  const l=currentBoard().slice(0,5);
+  if(challenge)l.push({name:'Challenge',score:challenge,chal:true});
+  return l.sort(rankCmp);
+}
 function renderChase(score){
-  const list=currentBoard().slice(0,5);
+  const list=chaseList();
   if(!list.length)return;
   const led=score>=list[0].score;
-  chase.innerHTML='<div class="ct">'+(led?'top of the board':'chasing')+'</div>'
+  chase.innerHTML='<div class="ct">'+(led?(list[0].chal?'challenge beaten':'top of the board'):'chasing')+'</div>'
     +list.map(s=>`<div class="row${score>=s.score?' passed':''}">`
       +`<span class="nm">${esc(s.name)}</span><b>${s.score}</b></div>`).join('')
     +`<div class="row you"><span class="nm">You</span><b>${score}</b></div>`;
@@ -1469,7 +1485,7 @@ function renderChase(score){
 function placeChase(){
   if(mode!=='play'){chase.classList.add('hidden');return;}   // also keeps `versus` out of reach before it is declared
   const r=canvas.getBoundingClientRect(), left=r.left-CHASE_GAP-CHASE_W;
-  if(versus||left<12||!currentBoard().length)chase.classList.add('hidden');
+  if(versus||left<12||!chaseList().length)chase.classList.add('hidden');
   else{
     chase.style.left=left+'px';chase.style.top=r.top+'px';
     chase.classList.remove('hidden');
@@ -1483,7 +1499,7 @@ function placeChase(){
 function armHudChase(){
   chaseTargets.length=0;
   if(versus)return;
-  const s=new Set(currentBoard().slice(0,5).map(x=>x.score));
+  const s=new Set(chaseList().map(x=>x.score));
   if(runBest)s.add(runBest);
   chaseTargets.push(...[...s].sort((a,b)=>a-b));
 }
@@ -1493,11 +1509,13 @@ function armHudChase(){
 // that refreshes mid-run and drops in a row you are already above stays quiet.
 function announcePass(score,prev){
   if(versus)return;
-  const list=currentBoard().slice(0,5);
+  const list=chaseList();
   let top=null;
   for(const s of list)if(s.score>prev&&score>=s.score&&(!top||s.score>top.score))top=s;
   if(!top)return;
-  vsToast(top===list[0]?'Top of the board — passed '+top.name:'Passed '+top.name+' · '+top.score,1900);
+  vsToast(top.chal?'Challenge beaten · '+top.score
+    :top===list[0]?'Top of the board — passed '+top.name
+    :'Passed '+top.name+' · '+top.score,1900);
   sfx('pass');
 }
 
@@ -1630,7 +1648,10 @@ function endGame(reason){
   msgEl.textContent=whyEnded(reason);   // the badge names the ending; four of the six are meaningless without a line of plain English
   goTime.textContent=secs+'s';goBlk.textContent=blk;goScore.textContent=score;
   goStats.classList.remove('hidden');overlay.classList.add('gameover');
-  goSub.innerHTML=newBest?`<b>&#9733; new best</b>`:'';   // the three tiles already show blocks / score; only the milestone earns a line
+  // the three tiles already show blocks / score; only a milestone earns a line
+  const chalLine=challenge&&score>0?(score>=challenge?`<b>&#9733; challenge beaten &mdash; ${challenge}</b>`
+    :`${challenge-score} short of ${challenge}`):'';
+  goSub.innerHTML=[newBest?'<b>&#9733; new best</b>':'',chalLine].filter(Boolean).join(' &middot; ');
   goSub.classList.remove('hidden');
   lastRun=score>0?{score,blocks:blk,mult,grid:encGrid()}:null;   // keep the finished mosaic — the share picture is drawn from it   // a 0-block run is nothing to brag about
   shareBtn.classList.toggle('hidden',!lastRun);
@@ -1673,6 +1694,7 @@ function startAttract(){                   // demo playing behind the menu
   badgeEl.textContent='Breakout, in reverse';
   titleEl.textContent='BREAKIN';
   msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce off the arena leaves a block behind &mdash; survive as the space closes in.'
+    +(challenge?`<br><span style="color:#7f8ca0;font-size:13px">You have been challenged to beat <b style="color:#ffd25f">${challenge}</b></span>`:'')
     +(loadBest()>0?`<br><span style="color:#7f8ca0;font-size:13px">Your best <b style="color:#ffd25f">${loadBest()}</b></span>`:'');
   goStats.classList.add('hidden');goSub.classList.add('hidden');overlay.classList.remove('gameover');
   shareBtn.classList.add('hidden');
