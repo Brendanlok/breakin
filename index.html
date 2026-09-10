@@ -2101,6 +2101,17 @@ async function roomPatch(code,fields){
     headers:rHead({Prefer:'return=minimal'}),body:JSON.stringify(fields)});noteTime(r);return r.ok;}
   catch(e){return false;}
 }
+// Stranded rooms are reaped by live traffic, not by unload. Measured 2026-09-10: NO keepalive
+// request survives unload in the only browser these sessions can drive — a DELETE and a POST
+// fired from the same pagehide both vanished — so the handler below cannot be verified here and
+// the 3h pg_cron sweep in 03-rooms.sql is still commented out. That left the game with no reaper
+// at all for a crash, a force-quit or a flat battery. ponytail: one filtered DELETE per invite
+// does what cron would have done, needs no migration, and runs on a live page where the request
+// actually completes. host_seen is re-stamped every 1.3s poll while a host holds a room, so a 3h
+// cutoff can only ever match a host who is long gone.
+const ROOM_TTL=3*3600*1000;
+function roomSweep(){try{fetch(ROOMS_URL+'?host_seen=lt.'+encodeURIComponent(srvISO(srvNow()-ROOM_TTL)),
+  {method:'DELETE',headers:rHead({Prefer:'return=minimal'})}).catch(()=>{});}catch(e){}}
 function roomDelete(code){try{fetch(ROOMS_URL+'?code=eq.'+encodeURIComponent(code),{method:'DELETE',keepalive:true,headers:rHead({Prefer:'return=minimal'})}).catch(()=>{});}catch(e){}}
 
 let vs=null;        // competitive session state, null when not in one
@@ -2177,6 +2188,7 @@ function closeCompete(){
 
 async function startInvite(){
   if(roomCode)roomDelete(roomCode);        // a room left over from the last match is ours to release before we burn a second code
+  roomSweep();                             // and clear anyone else's abandoned rooms while we are here
   roomCode=makeCode();
   cCodeEl.textContent=roomCode.split('').join(' ');
   drawQR(joinURL(roomCode));
@@ -2629,12 +2641,15 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)return;kick
 // A host who closed the tab or navigated away used to leave the lobby row behind forever:
 // roomDelete only ever ran from vsCleanup, i.e. a deliberate Cancel / Back. Every abandoned
 // lobby permanently burns one of the 6-char join codes and a free-tier row, and a launch burst
-// is exactly the traffic that half-starts a lot of invites. keepalive is the part that matters —
-// a plain fetch is killed with the page on unload. persisted=true means the page is only going
+// is exactly the traffic that half-starts a lot of invites. keepalive is meant to be the part that
+// matters — a plain fetch is killed with the page on unload — but it is UNVERIFIED: see roomSweep
+// above, nothing sent from unload lands in the browser these sessions can drive, so this handler
+// is a best-effort fast path and roomSweep is the reaper that is actually known to run.
+// persisted=true means the page is only going
 // into the bfcache (phone locked, app switched) and may well come back, so leave that room alive;
 // the guest sees the room vanish and gets "The other player left" instead of a 12s stale-heartbeat
-// stall. ponytail: the commented-out 3h pg_cron sweep in 03-rooms.sql is still the backstop for
-// what this cannot catch (crash, force-quit, flat battery) — it needs Lok to run it.
+// stall. What this cannot catch (crash, force-quit, flat battery) is roomSweep's job now, so the
+// pg_cron sweep in 03-rooms.sql is a nice-to-have rather than the only backstop.
 // Keyed on roomCode, not vs: vsEndMatch calls vsCleanup(true), which keeps the room for the
 // rematch flow but nulls vs — so from the result screen onward a vs-based guard was false and
 // the room was stranded again. Only a host ever sets roomCode, so a guest still deletes nothing.
@@ -2703,6 +2718,18 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     vs={role:'guest',code:'BBB222'};roomCode='';vsCleanup();
     console.assert(gone.length===1,'a guest leaving never deletes the room the host owns');
     roomDelete=real;vs=wasVs;roomCode=wasCode;})();
+
+  // the sweep must be old enough that it can never take a room whose host is still there.
+  // host_seen is re-stamped every 1.3s poll, so the only thing 3h back is genuinely abandoned.
+  (()=>{const real=window.fetch,seen=[];
+    window.fetch=(u,o)=>{seen.push([u,o&&o.method]);return Promise.resolve({ok:true,status:204,headers:{get:()=>null},json:()=>Promise.resolve([])});};
+    roomSweep();
+    window.fetch=real;
+    const [url,method]=seen[0]||[];
+    console.assert(method==='DELETE'&&/host_seen=lt\./.test(url),'the sweep deletes by staleness, never by code');
+    const cut=Date.parse(decodeURIComponent(String(url).split('host_seen=lt.')[1]));
+    const age=srvNow()-cut;
+    console.assert(age>2.5*3600*1000&&age<3.5*3600*1000,'the sweep cutoff is ~3h back, so a live lobby is never swept');})();
 
   // the unsaved-score guard: bounces once, then gets out of the way
   (()=>{const wasPending=pendingScore,wasHidden=nameEntry.classList.contains('hidden'),wasArmed=leaveArmed;
