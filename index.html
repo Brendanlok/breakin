@@ -737,8 +737,13 @@ function dayRand(){
 // menu names the number, the chasing panel tracks it live, and the result says whether it fell.
 // Honest framing only — a score set on another day was set on another ball, so it stays "beat 318"
 // and never "beat their run on your ball".
-const challenge=(()=>{const n=+(new URLSearchParams(location.search).get('beat'));
-  return Number.isInteger(n)&&n>0&&n<1e6?n:0;})();
+// The number alone is a target with nobody behind it. Carry the sharer's name too — "beat SHARPW"
+// pulls harder than "beat 318" — through cleanName, the same filter the board uses, so nothing
+// arbitrary from the URL ever reaches the screen. No name in the link just falls back to anonymous.
+const chalFrom=q=>{const p=new URLSearchParams(q),n=+p.get('beat');
+  const score=Number.isInteger(n)&&n>0&&n<1e6?n:0;
+  return {score,by:score?cleanName(p.get('by')):''};};      // a name with no score is not a challenge
+const {score:challenge,by:challengeBy}=chalFrom(location.search);
 
 let boardView='today';       // 'today' | 'all' — the daily race is what the game is about, so it leads
 let boardPicked=false;       // the player tapped a tab — from then on the view is theirs, never auto-switched
@@ -1243,7 +1248,8 @@ shareBtn.addEventListener('click',async()=>{
   if(!lastRun)return;
   const {score,blocks,mult}=lastRun;
   const text=`Breakin — ${score}, sealed ${sealPct(blocks)} of the arena (${blocks} block${blocks===1?'':'s'} × ${mult} speed). Everyone gets the same ball each day — can you beat it?`;
-  const url=location.origin+location.pathname+'?beat='+score;   // the link IS the challenge — a bare URL is only a poster
+  const me=loadName();                                          // whatever they last saved / competed under — never invented
+  const url=location.origin+location.pathname+'?beat='+score+(me?'&by='+me:'');   // the link IS the challenge — a bare URL is only a poster
   const full=text+' '+url;
   const say=(t,stick)=>{shareBtn.textContent=t;shareBtn.classList.add('done');
     if(!stick)setTimeout(()=>{shareBtn.textContent='Share your score';shareBtn.classList.remove('done');},1900);};
@@ -1470,14 +1476,14 @@ let chaseScore=-1, chaseTargets=[];
 // separate special cases.
 function chaseList(){
   const l=currentBoard().slice(0,5);
-  if(challenge)l.push({name:'Challenge',score:challenge,chal:true});
+  if(challenge)l.push({name:challengeBy||'Challenge',score:challenge,chal:true});
   return l.sort(rankCmp);
 }
 function renderChase(score){
   const list=chaseList();
   if(!list.length)return;
   const led=score>=list[0].score;
-  chase.innerHTML='<div class="ct">'+(led?(list[0].chal?'challenge beaten':'top of the board'):'chasing')+'</div>'
+  chase.innerHTML='<div class="ct">'+(led?(list[0].chal?(challengeBy?challengeBy+' beaten':'challenge beaten'):'top of the board'):'chasing')+'</div>'
     +list.map(s=>`<div class="row${score>=s.score?' passed':''}">`
       +`<span class="nm">${esc(s.name)}</span><b>${s.score}</b></div>`).join('')
     +`<div class="row you"><span class="nm">You</span><b>${score}</b></div>`;
@@ -1513,7 +1519,7 @@ function announcePass(score,prev){
   let top=null;
   for(const s of list)if(s.score>prev&&score>=s.score&&(!top||s.score>top.score))top=s;
   if(!top)return;
-  vsToast(top.chal?'Challenge beaten · '+top.score
+  vsToast(top.chal?(challengeBy?'Beat '+challengeBy+' · '+top.score:'Challenge beaten · '+top.score)
     :top===list[0]?'Top of the board — passed '+top.name
     :'Passed '+top.name+' · '+top.score,1900);
   sfx('pass');
@@ -1649,8 +1655,9 @@ function endGame(reason){
   goTime.textContent=secs+'s';goBlk.textContent=blk;goScore.textContent=score;
   goStats.classList.remove('hidden');overlay.classList.add('gameover');
   // the three tiles already show blocks / score; only a milestone earns a line
-  const chalLine=challenge&&score>0?(score>=challenge?`<b>&#9733; challenge beaten &mdash; ${challenge}</b>`
-    :`${challenge-score} short of ${challenge}`):'';
+  const chalLine=challenge&&score>0?(score>=challenge
+      ?`<b>&#9733; ${challengeBy?'beat '+challengeBy:'challenge beaten'} &mdash; ${challenge}</b>`
+      :`${challenge-score} short of ${challengeBy?challengeBy+'&rsquo;s '+challenge:challenge}`):'';
   goSub.innerHTML=[newBest?'<b>&#9733; new best</b>':'',chalLine].filter(Boolean).join(' &middot; ');
   goSub.classList.remove('hidden');
   lastRun=score>0?{score,blocks:blk,mult,grid:encGrid()}:null;   // keep the finished mosaic — the share picture is drawn from it   // a 0-block run is nothing to brag about
@@ -1694,7 +1701,7 @@ function startAttract(){                   // demo playing behind the menu
   badgeEl.textContent='Breakout, in reverse';
   titleEl.textContent='BREAKIN';
   msgEl.innerHTML='The ball builds walls instead of breaking them. Every bounce off the arena leaves a block behind &mdash; survive as the space closes in.'
-    +(challenge?`<br><span style="color:#7f8ca0;font-size:13px">You have been challenged to beat <b style="color:#ffd25f">${challenge}</b></span>`:'')
+    +(challenge?`<br><span style="color:#7f8ca0;font-size:13px">${challengeBy?challengeBy+' has challenged you to beat':'You have been challenged to beat'} <b style="color:#ffd25f">${challenge}</b></span>`:'')
     +(loadBest()>0?`<br><span style="color:#7f8ca0;font-size:13px">Your best <b style="color:#ffd25f">${loadBest()}</b></span>`:'');
   goStats.classList.add('hidden');goSub.classList.add('hidden');overlay.classList.remove('gameover');
   shareBtn.classList.add('hidden');
@@ -2718,6 +2725,9 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
   console.assert(cleanName('Lok')==='LOK','short names survive intact');
   console.assert(cleanName('  a-b_c!d@e#f$g ')==='ABCDEF','punctuation is dropped, not substituted');
   console.assert(cleanName('')===''&&cleanName(null)==='','empty stays empty so the fallback can fire');
+  console.assert(chalFrom('?beat=318&by=sharp%20wasp').by==='SHARPW','a challenge carries the sharer name, cleaned like any other');
+  console.assert(chalFrom('?beat=318').by===''&&chalFrom('?beat=318').score===318,'an unnamed challenge is still a challenge');
+  console.assert(chalFrom('?by=SHARPW').score===0&&chalFrom('?by=SHARPW').by==='','a name with no score is not a challenge at all');
   console.assert(fixName({name:'SHARP WASP',score:9}).name==='SHARPW','a legacy long name is shortened on the board too, not just on save');
   console.assert(fixName({name:'!!!',score:9}).name==='PLAYER','a legacy name with nothing legal left still shows something');
   console.assert(NAME_ALL.every(w=>w.length<=5)&&randomName().length<=6&&/^[A-Z0-9]+$/.test(randomName()),
