@@ -581,8 +581,8 @@
   <img id="shareImg" class="hidden" alt="The arena your run built, as a picture you can save">
   <button id="setToggle" aria-expanded="false">Change speed &amp; sound</button>
   <div id="speed">
-    <span class="slbl">Ball speed &nbsp;&middot;&nbsp; score <b id="multVal">&times;4</b></span>
-    <input type="range" id="multSlider" min="3" max="5" step="0.5" value="4">
+    <span class="slbl">Ball speed &nbsp;&middot;&nbsp; score <b id="multVal">&times;3</b></span>
+    <input type="range" id="multSlider" min="1" max="5" step="0.5" value="3">
     <div class="ends"><span>slower</span><span>faster</span></div>
     <div class="hint">Faster ball &rarr; more points per block, less time to react.</div>
   </div>
@@ -1337,20 +1337,20 @@ fit();
 // Ball speed / score multiplier — set on the menu only, locked once a game starts.
 // score = blocks generated x mult;  faster ball = higher mult.
 const MAX_MULT=5;                            // slider top stop. The server guard must allow the same range — see 09-speed-x5-guard.sql
-// Lok's call, 2026-09-10: the old slider opened at ×3 and went down to ×1, and the bottom half was
-// nobody's idea of a game — too slow to be tense. So the old ×3 becomes the new floor and the five
-// stops are ×3 ×3.5 ×4 ×4.5 ×5, opening on ×4. Raising MIN_MULT needs no server migration (the guard
-// already accepts any half step from 1 to 5); only pushing MAX_MULT past 5 would.
-const MIN_MULT=3;
-let mult=4;
-try{const s=parseFloat(localStorage.getItem('breakin-mult'));if(s>=MIN_MULT&&s<=MAX_MULT)mult=s;}catch(e){}
-const ballFactor=()=>0.62+0.3*mult;          // mult 1 -> 0.92x ... mult 5 -> 2.12x base speed
+// Lok's call, 2026-09-10: the bottom of the range was too slow to be a game. The slider still READS
+// ×1..×5 and still sets the score multiplier — only the speed each stop delivers moved up by two of
+// the old steps, so ×1 now plays exactly like the old ×3 and ×5 is faster than anything before it.
+// The number on the slider is therefore the score multiplier, not the speed; SPEED_SHIFT is the gap.
+const SPEED_SHIFT=2;
+let mult=3;
+try{const s=parseFloat(localStorage.getItem('breakin-mult'));if(s>=1&&s<=MAX_MULT)mult=s;}catch(e){}
+const ballFactor=()=>0.62+0.3*(mult+SPEED_SHIFT);   // ×1 -> 1.52x (the old ×3) ... ×5 -> 2.72x base speed
 function syncSetToggle(){                     // the collapsed row names what it holds, incl. the live speed
   setToggle.textContent='Speed ×'+mult+(isTouch?' · controls · sound':' · sound');
 }
 function setMult(m){
   if(mode==='play')return;                   // cannot change speed mid-game
-  mult=Math.min(MAX_MULT,Math.max(MIN_MULT,Math.round(m*2)/2));
+  mult=Math.min(MAX_MULT,Math.max(1,Math.round(m*2)/2));
   multSlider.value=mult;
   multVal.textContent='×'+mult;
   syncSetToggle();
@@ -2250,7 +2250,7 @@ function maybeLaunch(){                  // both sides confirmed -> start on its
 }
 function hostSetSpeed(d){
   if(!vs||vs.role!=='host'||versus)return;
-  setMult(mult+d);                                            // clamps MIN_MULT..MAX_MULT, updates local mult + the menu slider
+  setMult(mult+d);                                            // clamps 1..MAX_MULT, updates local mult + the menu slider
   vs.roomMult=mult;
   if(vs.lobbySync){vs.guestReady=false;vs.hostReady=false;}    // speed changed — both confirm again
   renderHostLobby();
@@ -2351,7 +2351,7 @@ function renderHostLobby(){
   cInviteShare.classList.toggle('hidden',connected);          // hide code/QR once someone's in
   cSpeedHost.classList.toggle('hidden',!vs.lobbySync);
   cSpdVal.textContent='×'+(vs.lobbySync?vs.roomMult:mult);
-  cSpdUp.disabled=vs.roomMult>=MAX_MULT;cSpdDown.disabled=vs.roomMult<=MIN_MULT;
+  cSpdUp.disabled=vs.roomMult>=MAX_MULT;cSpdDown.disabled=vs.roomMult<=1;
   if(!connected){
     cInviteStatus.textContent='Waiting for someone to join…';
     cInviteNote.textContent='They join by code or by scanning this. Keep this screen open.';
@@ -2708,9 +2708,13 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
   console.assert(order([{tag:'timed',score:100,secs:90},{tag:'untimed',score:100}])==='timed,untimed',
     'a run with no recorded time never outranks one that has it');
 
-  // the speed slider's floor: a value from below the new range must be pulled up, never accepted
+  // the slider reads ×1..×5, but ×1 must deliver what ×3 used to — the whole point of the remap
   (()=>{const was=mult, wasStored=(()=>{try{return localStorage.getItem('breakin-mult');}catch(e){return null;}})();
-    setMult(1);   console.assert(mult===MIN_MULT,'a speed below the floor clamps up to it, never plays slower');
+    const OLD=m=>0.62+0.3*m;                       // the mapping before 2026-09-10, for reference
+    setMult(1);   console.assert(Math.abs(ballFactor()-OLD(3))<1e-9,'×1 plays exactly as fast as the old ×3');
+    setMult(3);   console.assert(Math.abs(ballFactor()-OLD(5))<1e-9,'the default is what the old top stop delivered');
+    setMult(5);   console.assert(ballFactor()>OLD(5),'the top stop is faster than anything the old slider could reach');
+    setMult(0);   console.assert(mult===1,'the slider still bottoms out at ×1, so the score multiplier keeps its range');
     setMult(99);  console.assert(mult===MAX_MULT,'a speed above the top clamps down to it');
     setMult(4.3); console.assert(mult===4.5,'the slider only ever lands on a half step');
     setMult(was);
