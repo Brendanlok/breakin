@@ -1037,9 +1037,8 @@ let NE_OK='&#9733; You made the board &mdash; add your name';
 // obvious the box below is a thing to fill in, not a result.
 const neOkText=(r,first)=>(r>1?'&#9733; #'+r+' on today’s board'
   :first?'&#9733; First on today’s board':'&#9733; Top of today’s board')+' &mdash; add your name';
-let leaveArmed=false;
 let neMsgSeq=0;                 // whichever message went up last owns the label - one timer must not clear another's
-function armNameEntry(){leaveArmed=false;neLabel.innerHTML=NE_OK;neLabel.classList.remove('warn');}
+function armNameEntry(){neLabel.innerHTML=NE_OK;neLabel.classList.remove('warn');}
 function rejectName(){
   const seq=++neMsgSeq;
   neLabel.textContent='Pick a different name — that one is not allowed.';
@@ -1047,15 +1046,9 @@ function rejectName(){
   try{nameInput.focus();nameInput.select();}catch(e){}
   setTimeout(()=>{if(seq===neMsgSeq)armNameEntry();},5000);
 }
-function unsavedGuard(){
-  if(!pendingScore||nameEntry.classList.contains('hidden')||leaveArmed)return false;
-  leaveArmed=true;neMsgSeq++;               // this message now owns the label; drop any pending rejectName restore
-  neLabel.textContent='Save your score first — or go again to skip it';
-  neLabel.classList.add('warn');
-  try{nameInput.focus();}catch(e){}
-  setTimeout(()=>{if(leaveArmed)armNameEntry();},5000);
-  return true;
-}
+// Leaving with an unsaved board spot used to cost a wasted tap: the first press of Play again /
+// home / compete only put a warning up, and you had to press again. Lok's call, 2026-09-10 — one
+// press always goes. Forgetting to put a name to a top score just loses the spot, and that is fine.
 
 // ---- hidden admin: open via #admin in the URL, or 5 quick taps on the badge. ----
 // All privileged actions go through a Supabase SECURITY DEFINER function that checks a
@@ -1688,7 +1681,6 @@ function kick(){                           // ensure exactly one animation loop 
   rafOn=true;lastT=lastFrameAt=performance.now();requestAnimationFrame(loop);
 }
 function startAttract(){                   // demo playing behind the menu
-  if(unsavedGuard())return;
   mode='attract';over=false;pendingScore=null;
   nameEntry.classList.add('hidden');
   badgeEl.textContent='Breakout, in reverse';
@@ -1706,7 +1698,6 @@ function startAttract(){                   // demo playing behind the menu
   fit();reset();kick();
 }
 function startPlay(){
-  if(unsavedGuard())return;               // unsaved board spot: one bounce before it is dropped
   pendingScore=null;                       // a run you did not Save is not saved - never post a name the player never typed
   if(isTouch&&touchCtl==='tilt'&&!tiltOn)enableTilt().then(ok=>{if(!ok)tiltFallback();});   // Play is a user gesture — ok to ask now
   if(isTouch&&touchCtl==='tilt')setTimeout(()=>{if(mode==='play'&&!tiltSeen)tiltFallback();},1500);   // granted but no reading ever arrives
@@ -2609,8 +2600,6 @@ function vsAbort(){
 }
 
 document.getElementById('competeBtn').addEventListener('click',()=>{
-  if(unsavedGuard())return;              // third way off the game-over card, and it sits under the name box too:
-                                         // starting a match hides the name entry for good, so the score would just vanish
   resetCompeteName();openCompete('choice');});
 cNameIn.addEventListener('input',()=>{const c=cleanName(cNameIn.value);if(c!==cNameIn.value)cNameIn.value=c;});
 document.getElementById('cInvite').addEventListener('click',startInvite);
@@ -2757,16 +2746,6 @@ if((location.hash||'').toLowerCase()==='#admin')openAdmin();
     const age=srvNow()-cut;
     console.assert(age>2.5*3600*1000&&age<3.5*3600*1000,'the sweep cutoff is ~3h back, so a live lobby is never swept');})();
 
-  // the unsaved-score guard: bounces once, then gets out of the way
-  (()=>{const wasPending=pendingScore,wasHidden=nameEntry.classList.contains('hidden'),wasArmed=leaveArmed;
-    pendingScore={score:1};nameEntry.classList.remove('hidden');leaveArmed=false;
-    console.assert(unsavedGuard()===true,'first attempt to leave an unsaved board spot is bounced');
-    console.assert(unsavedGuard()===false,'the second attempt goes through');
-    leaveArmed=false;nameEntry.classList.add('hidden');
-    console.assert(unsavedGuard()===false,'no bounce when there is no name box on screen');
-    pendingScore=wasPending;leaveArmed=wasArmed;nameEntry.classList.toggle('hidden',wasHidden);armNameEntry();
-    try{nameInput.blur();}catch(e){}   // the check above focuses the box; never leave a phone keyboard open on load
-  })();
   // a standing "could not save" warning must survive the attract demo restarting its arena
   (()=>{const wf=saveFailed,wg=saveGaveUp,wm=mode;
     mode='attract';saveFailed=true;saveGaveUp=true;reset();
