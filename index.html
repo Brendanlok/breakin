@@ -1204,7 +1204,7 @@ const sealPct=n=>Math.round(n/CAP*100)+'%';   // ponytail: no <1% case — one b
 // Draw the finished arena as a poster: same palette as the game, score underneath, link at the foot.
 function cardFile(run){
   const F='-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
-  const g0=42,pad=42,head=104,foot=150;
+  const g0=42,pad=42,head=104,foot=178;   // one line taller than the URL alone: the daily-ball hook sits above it
   const nr=+String(run.grid||'').split(':')[1]||ROWS;
   const mini=document.createElement('canvas');
   mini.width=COLS*g0;mini.height=nr*g0;
@@ -1221,8 +1221,12 @@ function cardFile(run){
   g.fillStyle='#e8edf4';g.font='800 62px '+F;g.fillText(run.score,mid,y+72);
   g.fillStyle='#7f8ca0';g.font='600 19px '+F;
   g.fillText(run.blocks+' block'+(run.blocks===1?'':'s')+' × '+run.mult+' speed  ·  '+sealPct(run.blocks)+' sealed',mid,y+104);
+  // The score alone reads as a boast. What makes it a challenge worth taking is that the opening
+  // ball is the same for everyone on the day - say so, or the picture is just a number.
+  g.fillStyle='#7f8ca0';g.font='600 16px '+F;
+  g.fillText('Same starting ball for everyone, every day',mid,y+134);
   g.fillStyle='#5b6a80';g.font='600 16px '+F;
-  g.fillText('brendanlok.github.io/breakin',mid,y+134);
+  g.fillText('brendanlok.github.io/breakin',mid,y+160);
   return new Promise((res,rej)=>cv.toBlob(b=>b?res(new File([b],'breakin.png',{type:'image/png'})):rej(),'image/png'));
 }
 const shareBtn=document.getElementById('shareBtn');
@@ -1230,7 +1234,7 @@ const shareOut=document.getElementById('shareOut');
 shareBtn.addEventListener('click',async()=>{
   if(!lastRun)return;
   const {score,blocks,mult}=lastRun;
-  const text=`Breakin — ${score}, sealed ${sealPct(blocks)} of the arena (${blocks} block${blocks===1?'':'s'} × ${mult} speed). Can you beat it?`;
+  const text=`Breakin — ${score}, sealed ${sealPct(blocks)} of the arena (${blocks} block${blocks===1?'':'s'} × ${mult} speed). Everyone gets the same ball each day — can you beat it?`;
   const url=location.origin+location.pathname;
   const full=text+' '+url;
   const say=(t,stick)=>{shareBtn.textContent=t;shareBtn.classList.add('done');
