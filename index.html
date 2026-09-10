@@ -736,7 +736,7 @@ let boardView='today';       // 'today' | 'all' — the daily race is what the g
 let boardPicked=false;       // the player tapped a tab — from then on the view is theirs, never auto-switched
 let remoteAll=null,remoteToday=null;   // null = offline / not configured
 const remoteBoardFor=()=>boardView==='today'?remoteToday:remoteAll;
-const localBoardFor=()=>boardView==='today'?loadLocal().filter(isToday):loadLocal();
+const boardFor=v=>(v==='today'?remoteToday:remoteAll)||(boardLoading?[]:(v==='today'?loadLocal().filter(isToday):loadLocal()));
 let boardLoading=false;      // first shared-board fetch in flight — don't claim the board is empty or offline yet
 let pendingScore=null;
 let arenaOpen='';            // name|score|date of the board row whose arena is showing (one at a time)
@@ -845,7 +845,7 @@ const rankCmp=(a,b)=>b.score-a.score||secsOf(a)-secsOf(b);
 // themselves at #1, until the real board quietly replaced them a moment later. Stay empty while
 // loading so the panel says "Loading scores" instead; the local fallback returns the moment the
 // request actually fails, labelled offline.
-const currentBoard=()=>(remoteBoardFor()||(boardLoading?[]:localBoardFor())).slice().sort(rankCmp);
+const currentBoard=()=>boardFor(boardView).slice().sort(rankCmp);
 
 // One quiet line under the board: where you stand, and how big the field is. Without it a
 // three-row board reads as broken rather than as a young game, and anyone outside the top 10
@@ -886,9 +886,13 @@ function renderBoard(mine){
   const all=currentBoard();
   const list=all.slice(0,MAXBOARD);
   const tag=DEV?' &middot; dev mode, scores not saved':!lbOn()?' &middot; this device':(remoteBoardFor()||boardLoading?'':' &middot; offline');
+  // Both tabs empty is not two boards, it is no board. Offering Today / All time then asks the
+  // player to choose between two panels that say exactly the same thing, and the switcher reads as
+  // the only thing on the panel that works. Hide it until there is a row somewhere.
+  const bare=!boardLoading&&!boardFor('today').length&&!boardFor('all').length;
   let html='<div class="bt">Leaderboard'+tag+'</div>'
-    +'<div class="btabs"><button class="btab'+(boardView==='today'?' on':'')+'" data-v="today">Today</button>'
-    +'<button class="btab'+(boardView==='all'?' on':'')+'" data-v="all">All time</button></div>';
+    +(bare?'':'<div class="btabs"><button class="btab'+(boardView==='today'?' on':'')+'" data-v="today">Today</button>'
+    +'<button class="btab'+(boardView==='all'?' on':'')+'" data-v="all">All time</button></div>');
   const dayLine=boardView==='today'?'<div class="bday">Same starting ball for everyone today</div>':'';
   // A refused save must be said on the empty board too. That is precisely when it is most likely:
   // an empty board is a fresh one, and a run that never lands leaves it looking untouched.
@@ -896,6 +900,8 @@ function renderBoard(mine){
     :saveFailed?'<div class="bwarn">Could not reach the leaderboard &mdash; still trying. This run is saved on this device.</div>':'';
   if(!list.length){board.innerHTML=html+'<div class="empty">'
     +(boardLoading?'Loading scores&hellip;'
+      // Nothing anywhere: "claim #1" implies a field to come first in. There is no field yet.
+      :bare?'Nobody has saved a score yet &mdash; '+(pendingScore?'save yours':'play a run')+' and the board starts with your name.'
       :boardView==='today'?'No scores yet today &mdash; '+(pendingScore?'save yours':'play')+' to claim #1.'
       :'No scores yet &mdash; '+(pendingScore?'save yours':'play')+' to claim #1.')+'</div>'+warn+dayLine;return;}
   const hl=mine?{name:mine.name,score:mine.score,used:false}:null;
