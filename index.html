@@ -113,6 +113,10 @@
   #overlay.gameover h1{font-size:clamp(27px,8.5vw,36px);letter-spacing:.08em;margin:0 0 4px;}
   #goSub:empty{display:none;}
   #overlay.gameover #shareBtn{order:1;margin-top:10px;}
+  /* The copy box and the picture are what the button produces, so they ride with it.
+     Without an order they defaulted to 0 and rendered above Play again - the button's own
+     "Copy the text below" then pointed at a box 500px further up the page. */
+  #overlay.gameover #shareOut,#overlay.gameover #shareImg{order:1;}
   #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
     align-items:center;justify-content:center;color:#e8edf4;text-align:center;
     padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px));
