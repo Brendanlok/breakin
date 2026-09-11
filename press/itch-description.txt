@@ -1,0 +1,45 @@
+Breakout, with the one rule it is built on turned around.
+
+The ball destroys nothing. Every time it bounces — off a wall, off a block, off your
+paddle — the square it just left turns solid forever. Nothing is ever cleared. There
+are no bricks to remove and no level to finish.
+
+So instead of opening the field up, you spend the whole run closing it down. The
+arena crusts over as you rally, the space you have to work with shrinks, and you get
+exactly one life.
+
+WHAT ACTUALLY KILLS YOU
+
+Not missing. Most runs end because the ball walled itself into a pocket it could not
+get back out of.
+
+That makes the correct instinct from Breakout — sliding under the ball and meeting it
+dead centre — actively wrong here. A centred hit sends it straight back the way it
+came, into the wall it just built. The angle you give the ball is the whole game.
+
+SCORING
+
+Your score is the number of blocks you generated times the ball-speed multiplier you
+set before starting.
+
+A faster ball is worth more per block, and it kills you sooner. At the low end you
+will survive several times longer for a fraction of the multiplier, and the two ends
+work out closer than you would expect. The slider is a wager you make before the run,
+not a difficulty setting, and it locks once you start.
+
+LEADERBOARD AND COMPETITIVE
+
+There is a shared leaderboard with no sign-in — finish a run, type a name, and you
+are on it. Everyone gets the same starting ball each day, so the daily board is a
+fair race rather than a list of whoever got lucky.
+
+There is also a competitive mode: send someone a link, you each play your own arena,
+and the higher score wins.
+
+CONTROLS
+
+Desktop — A and D, or the arrow keys.
+Mobile — on-screen buttons, or tilt the device.
+
+Free, no ads, no sign-in, no download. Works on a phone, and installs to your home
+screen if you want it there.
