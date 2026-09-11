@@ -149,9 +149,8 @@ inversion and the single-file constraint.
   template above already covers it.
 - Lead with the GIF. In a still, Breakin looks like ordinary Breakout.
 - Do not claim a player count or a rating the game doesn't have.
-- **Do not claim PWA install until the phone pass confirms it.** The manifest and
-  service worker are in place, but installing to a real home screen has never been
-  tested on real hardware. The r/playmygame template says "installable as a PWA" —
-  cut those four words unless it has actually been installed on a phone.
+- PWA install is confirmed. Lok ran the real-device pass on 11 Sep — tilt, notch,
+  audio and home-screen install all check out — so "installable as a PWA" in the
+  r/playmygame template is a claim the game has actually earned. Leave it in.
 - The leaderboard is empty until the first real player saves a score, so do not
   point at it as a reason to play on day one.
