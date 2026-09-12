@@ -43,13 +43,13 @@ do. A centred hit sends it straight back the way it came, into the pocket it jus
 built, and that is how most runs actually end — not by missing. Meeting the ball
 off centre is the whole game.
 
-https://brendanlok.github.io/breakin/
+https://brendanlok.itch.io/breakin
 
 ## r/playmygame
 
 **Title:** [HTML5] Breakin — Breakout where the ball builds the wall instead of breaking it
 
-**Link:** https://brendanlok.github.io/breakin/
+**Link:** https://brendanlok.itch.io/breakin
 
 **Platform:** Browser (desktop + mobile, installable as a PWA)
 
@@ -57,7 +57,8 @@ https://brendanlok.github.io/breakin/
 
 Breakout with one rule inverted: the ball never destroys anything. Every bounce
 turns the cell it left permanently solid, so the play area shrinks as you survive.
-One life, no levels to clear — the run ends when you miss.
+One life, no levels to clear. Most runs end with the ball sealed into a pocket of
+its own making rather than with a miss.
 
 Score = blocks generated x the ball-speed multiplier you chose on the menu, so
 speed is a risk/reward dial rather than a difficulty setting. Shared leaderboard,
