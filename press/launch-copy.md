@@ -127,32 +127,7 @@ two people take separate arenas from one shared link and the higher score wins.
 
 ## Show HN
 
-Frame it around the constraint, not the game — that is the part this audience
-actually turns up for.
-
-**Title:** Show HN: Breakout, inverted — the ball builds the wall instead of breaking it
-
-**First comment:**
-
-> I wanted to know what Breakout becomes if you invert the one rule it is built on.
-> The ball destroys nothing; every bounce turns the cell it just left permanently
-> solid. Nothing is ever cleared, so instead of opening the field up, you spend the
-> whole run closing it down. One life.
->
-> The interesting part is that it changes what kills you. In Breakout you die by
-> missing. Here you mostly die because the ball sealed itself into a pocket it
-> could not leave, which means centring your paddle under it — the correct instinct
-> in Breakout — is actively wrong.
->
-> The whole thing is one HTML file: vanilla JS and a canvas, no build step, no
-> dependencies, no framework. Scores go to a Postgres table through PostgREST with a
-> plausibility check as an insert trigger, and the competitive mode passes state
-> through one shared row rather than a socket. That is the entire backend.
->
-> No sign-in, no ads, works on a phone. Happy to talk about any of it.
-
-**Don't:** post it as "I built a game" and lead with the leaderboard. Lead with the
-inversion and the single-file constraint.
+Not posting here. Lok's decision, 13 Sep 2026.
 
 ## Notes for posting
 
