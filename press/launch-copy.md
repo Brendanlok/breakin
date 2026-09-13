@@ -47,28 +47,38 @@ https://brendanlok.itch.io/breakin
 
 ## r/playmygame
 
+Their required template, filled in. Check the sidebar rules for anything on
+AI-assisted games before posting — the Involvement line is honest about it.
+
 **Title:** [HTML5] Breakin — Breakout where the ball builds the wall instead of breaking it
 
-**Link:** https://brendanlok.itch.io/breakin
+```
+Game Title: Breakin
 
-**Platform:** Browser (desktop + mobile, installable as a PWA)
+Playable Link: https://brendanlok.itch.io/breakin
 
-**Free / paid:** Free, no ads, no sign-in
+Platform: Browser — desktop and mobile
 
-Breakout with one rule inverted: the ball never destroys anything. Every bounce
-turns the cell it left permanently solid, so the play area shrinks as you survive.
-One life, no levels to clear. Most runs end with the ball sealed into a pocket of
-its own making rather than with a miss.
+Description: Breakin is Breakout with its one core rule turned around: the ball never destroys anything. Every time it bounces — off a wall, off a block, or off your paddle — the square it just left turns permanently solid. Nothing is ever cleared, so instead of opening the arena up you spend the whole run closing it down. You get one life.
 
-Score = blocks generated x the ball-speed multiplier you chose on the menu, so
-speed is a risk/reward dial rather than a difficulty setting. Shared leaderboard,
-plus a competitive mode where two players take separate boards from one shared link.
+What makes it tricky is that most runs don't end with a miss. They end when the ball seals itself into a pocket it can't escape, which means Breakout's instinct of meeting the ball dead centre is exactly wrong here — the angle you put on it is the whole game.
 
-Controls: A/D or arrow keys on desktop; on-screen buttons or device tilt on mobile.
+Your score is blocks built times the ball-speed multiplier you pick before starting. A faster ball pays more per block but ends your run sooner, so the slider is a bet rather than a difficulty setting.
 
-Feedback I'd most like: does the inversion click within the first run, and is the
-speed slider readable as a scoring choice rather than just "harder"? There's a
-feedback box on the menu that goes straight to me.
+There's a shared daily leaderboard with no sign-in, where everyone gets the same starting ball, and a competitive mode where you send a friend a link and the higher score wins.
+
+Controls: A/D or arrow keys on desktop; on-screen buttons or tilt on mobile. Free, no ads, and it installs to your home screen.
+
+Feedback I'd most like: does the inversion click in your first run, and does the speed slider read as a scoring choice rather than just "harder"? There's a feedback box on the menu that comes straight to me.
+
+Free to Play Status:
+
+* [x] Free to play
+* [ ] Demo/Key available
+* [ ] Paid (Allowed only on Tuesdays with [TT] in the title)
+
+Involvement: Solo project. I came up with the concept and made the design calls — the inverted rule, the scoring and speed trade-off, the controls, what went in and what got cut — and tested it on my own phone. The code was written with Claude, an AI model, working under my direction.
+```
 
 ## itch.io
 
